@@ -1,0 +1,13 @@
+[package]
+name = "packs-proc"
+version = "0.1.0"
+authors = ["Philipp Pfeiffer <pfiff@posteo.de>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0.38"
+quote = "1.0.7"
+proc-macro2 = "1.0.24"
