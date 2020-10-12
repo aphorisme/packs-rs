@@ -12,8 +12,8 @@ use crate::packable::{Pack, Unpack};
 /// It does not allow for recursive patterns; in a struct there is no other structure allowed.
 ///
 /// ## Encode and Decode
-/// Encoding and Decoding is given by the generic [`Packable`](crate::packable::Packable) implementation
-/// for `Value<S>` where `S: `[`StructVariant`](crate::value::structure::StructVariant):
+/// Encoding and Decoding is given by the generic [`Pack`](crate::packable::Pack) and [`Unpack`](crate::packable::Unpack)
+/// implementation for `Value<S>` where `S: `[`PackableStructSum`](crate::structure::struct_sum::PackableStructSum):
 /// ```
 /// # use packs::structure::generic_struct::GenericStruct;
 /// # use packs::value::Value;

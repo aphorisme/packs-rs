@@ -11,7 +11,7 @@ pub mod bytes;
 /// their own structures which should be part of `Value`. There are two standard
 /// implementations, either `Value<()>` to denote a value where only the unit is
 /// allowed as a structure, or `Value<GenericStruct>` which reads any valid structure
-/// in a generic way, see [`GenericStruct`](crate::value::generic_struct::GenericStruct).
+/// in a generic way, see [`GenericStruct`](crate::structure::generic_struct::GenericStruct).
 pub enum Value<S> {
     Null,
     Boolean(bool),

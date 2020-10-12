@@ -10,6 +10,14 @@ pub struct Node<T> {
 }
 
 impl<T> Node<T> {
+    pub fn new(id: i64) -> Self {
+        Node {
+            id,
+            labels: HashSet::new(),
+            properties: HashMap::new(),
+        }
+    }
+
     pub fn add_property<V: Into<Value<T>>>(&mut self, key: &str, value: V) -> Option<Value<T>> {
         self.properties.insert(String::from(key), value.into())
     }

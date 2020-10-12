@@ -1,8 +1,8 @@
 use std::io::{Read, Write};
 use crate::{DecodeError, EncodeError};
 
-/// Denotes a struct which can be encoded and decoded using [`encode_struct`](crate::value::structure::encode_struct)
-/// and [`decode_struct`](crate::value::structure::decode_struct).
+/// Denotes a struct which can be encoded and decoded using [`encode_struct`](crate::structure::encode_struct)
+/// and [`decode_struct`](crate::structure::decode_struct).
 ///
 /// ## Implementation
 /// This trait can be derived using `#[derive(PackableStruct)]` if all fields implement

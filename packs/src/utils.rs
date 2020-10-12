@@ -10,7 +10,7 @@ pub fn encode_property<T: Write, V: Pack<T>>(key: &str, value: &V, writer: &mut 
 }
 
 /// Decodes a key-value pair using PackStream. Keys are strings, but values can be anything which
-/// implements [`Unpack`](crate::Packable::Unpack).
+/// implements [`Unpack`](crate::packable::Unpack).
 pub fn decode_property<T: Read, V: Unpack<T>>(reader: &mut T) -> Result<(String, V), DecodeError> {
     let key = String::decode(reader)?;
     let value = V::decode(reader)?;

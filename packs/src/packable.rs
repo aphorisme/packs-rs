@@ -1,5 +1,5 @@
 //! # Overview
-//! The main API traits are [`Pack`](crate::packable::Pack) and [`Unpack`](crate:packable::Unpack).
+//! The main API traits are [`Pack`](crate::packable::Pack) and [`Unpack`](crate::packable::Unpack).
 //! Both are high-level traits for types which can be encoded and decoded
 //! following the PackStream specification. This includes the basic types as well as
 //! compound structures.

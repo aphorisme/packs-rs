@@ -11,6 +11,22 @@ pub struct Relationship<T> {
     pub properties: HashMap<String, Value<T>>
 }
 
+impl<T> Relationship<T> {
+    pub fn new(id: i64, _type: &str, from: i64, to: i64) -> Self {
+        Relationship {
+            id,
+            start_node_id: from,
+            end_node_id: to,
+            _type: String::from(_type),
+            properties: HashMap::new(),
+        }
+    }
+
+    pub fn add_property<V: Into<Value<T>>>(&mut self, key: &str, value: V) -> Option<Value<T>> {
+        self.properties.insert(String::from(key), value.into())
+    }
+}
+
 #[cfg(test)]
 pub mod test {
     use crate::packable::test::pack_unpack_test;
