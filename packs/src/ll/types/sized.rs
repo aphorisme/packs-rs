@@ -2,9 +2,10 @@ use std::io::{Read, Write};
 use crate::ll::marker::{Marker};
 use crate::error::{DecodeError, EncodeError};
 use crate::packable::{Unpack, Pack};
-use std::collections::HashMap;
-use crate::ll::types::lengths::{Length, read_size_8, read_size_16, read_size_32};
+use std::collections::{HashMap, HashSet};
+use crate::ll::types::lengths::{Length, read_size_8, read_size_16, read_size_32, read_list_size, read_dict_size, read_string_size};
 use crate::value::bytes::Bytes;
+use std::hash::Hash;
 
 //-----------------------//
 //         API           //
@@ -38,6 +39,14 @@ fn write_header<T: Write, S: SizedType>(value: &S, writer: &mut T) -> Result<usi
     Ok(marker.encode(writer)? + len.encode(writer)?)
 }
 
+fn write_body_by_iter<'a, T: Write, P: 'a + Pack<T>, C: Iterator<Item = &'a P>>(collection: &'a mut C, writer: &mut T) -> Result<usize, EncodeError> {
+    let mut written = 0;
+    for v in collection {
+        written += v.encode(writer)?
+    }
+    Ok(written)
+}
+
 //--------------------------------------------//
 //              GENERIC PART                  //
 //--------------------------------------------//
@@ -55,15 +64,18 @@ pub trait SizedType: Sized {
 
 }
 
+// --------------------------------------- //
+//          String implementation          //
+// --------------------------------------- //
 impl SizedType for String {
     fn header(&self) -> (Marker, Length) {
         let len = Length::from_usize(self.len()).expect(&format!("string has invalid length '{}'", self.len()));
-        match len {
-            Length::Tiny(u) => (Marker::TinyString(u as usize), len),
-            Length::Bit8(_) => (Marker::String8, len),
-            Length::Bit16(_) => (Marker::String16, len),
-            Length::Bit32(_) => (Marker::String32, len),
-        }
+        (len.marker(
+            Marker::TinyString,
+            Marker::String8,
+            Marker::String16,
+            Marker::String32,
+        ), len)
     }
 }
 
@@ -76,13 +88,7 @@ impl<T: Write> SizedTypePack<T> for String {
 
 impl<T: Read> SizedTypeUnpack<T> for String {
     fn read_length(marker: Marker, reader: &mut T) -> Result<usize, DecodeError> {
-        match marker {
-            Marker::TinyString(u) => Ok(u),
-            Marker::String8 => read_size_8(reader),
-            Marker::String16 => read_size_16(reader),
-            Marker::String32 => read_size_32(reader),
-            _ => Err(DecodeError::UnexpectedMarker(marker))
-        }
+        read_string_size(marker, reader)
     }
 
     fn read_body(len: usize, reader: &mut T) -> Result<Self, DecodeError> {
@@ -92,38 +98,26 @@ impl<T: Read> SizedTypeUnpack<T> for String {
     }
 }
 
+// --------------------------------------- //
+//            Vec implementation           //
+// --------------------------------------- //
 impl<P> SizedType for Vec<P> {
     fn header(&self) -> (Marker, Length) {
         let len =
             Length::from_usize(self.len()).expect(&format!("Vec has invalid length '{}'", self.len()));
-        match len {
-            Length::Tiny(u) => (Marker::TinyList(u as usize), len),
-            Length::Bit8(_) => (Marker::List8, len),
-            Length::Bit16(_) => (Marker::List16, len),
-            Length::Bit32(_) => (Marker::List32, len),
-        }
-    }
-}
 
-impl<T: Write, P: Pack<T>> SizedTypePack<T> for Vec<P> {
-    fn write_body(&self, writer: &mut T) -> Result<usize, EncodeError> {
-        let mut u = 0;
-        for p in self {
-            u += p.encode(writer)?;
-        }
-        Ok(u)
+        (len.marker(
+            Marker::TinyList,
+            Marker::List8,
+            Marker::List16,
+            Marker::List32),
+         len)
     }
 }
 
 impl<T: Read, P: Unpack<T>> SizedTypeUnpack<T> for Vec<P> {
     fn read_length(marker: Marker, reader: &mut T) -> Result<usize, DecodeError> {
-        match marker {
-            Marker::TinyList(u) => Ok(u),
-            Marker::List8 => read_size_8(reader),
-            Marker::List16 => read_size_16(reader),
-            Marker::List32 => read_size_32(reader),
-            _ => Err(DecodeError::UnexpectedMarker(marker))
-        }
+        read_list_size(marker, reader)
     }
 
     fn read_body(len: usize, reader: & mut T) -> Result<Self, DecodeError> {
@@ -137,18 +131,66 @@ impl<T: Read, P: Unpack<T>> SizedTypeUnpack<T> for Vec<P> {
     }
 }
 
+impl<T: Write, P: Pack<T>> SizedTypePack<T> for Vec<P> {
+    fn write_body(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        write_body_by_iter(&mut self.iter(), writer)
+    }
+}
+
+// --------------------------------------- //
+//          HashSet implementation         //
+// --------------------------------------- //
+impl<T: Write, P: Pack<T>> SizedTypePack<T> for HashSet<P> {
+    fn write_body(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        write_body_by_iter(&mut self.iter(), writer)
+    }
+}
+
+impl<T: Read, P: Unpack<T> + Hash + Eq> SizedTypeUnpack<T> for HashSet<P> {
+    fn read_length(marker: Marker, reader: &mut T) -> Result<usize, DecodeError> {
+        read_list_size(marker, reader)
+    }
+
+    fn read_body(len: usize, reader: &mut T) -> Result<Self, DecodeError> {
+        let mut res = HashSet::with_capacity(len);
+        for _ in 0..len {
+            let v = P::decode(reader)?;
+            res.insert(v);
+        }
+
+        Ok(res)
+    }
+}
+
+impl<P> SizedType for HashSet<P> {
+    fn header(&self) -> (Marker, Length) {
+        let len =
+            Length::from_usize(self.len()).expect(&format!("HashSet has invalid length '{}'", self.len()));
+
+        (len.marker(
+            Marker::TinyList,
+            Marker::List8,
+            Marker::List16,
+            Marker::List32),
+         len)
+    }
+}
+
+// --------------------------------------- //
+//          HashMap Implementation        //
+// --------------------------------------- //
 impl<P> SizedType for HashMap<String, P> {
     fn header(&self) -> (Marker, Length) {
         let len =
             Length::from_usize(self.len())
                 .expect(&format!("HashMap has invalid length '{}'", self.len()));
 
-        match len {
-            Length::Tiny(u) => (Marker::TinyDictionary(u as usize), len),
-            Length::Bit8(_) => (Marker::Dictionary8, len),
-            Length::Bit16(_) => (Marker::Dictionary16, len),
-            Length::Bit32(_) => (Marker::Dictionary32, len),
-        }
+        (len.marker(
+            Marker::TinyDictionary,
+            Marker::Dictionary8,
+            Marker::Dictionary16,
+            Marker::Dictionary32
+        ), len)
     }
 }
 
@@ -162,18 +204,11 @@ impl<T: Write, P: Pack<T>> SizedTypePack<T> for HashMap<String, P> {
 
         Ok(u)
     }
-
 }
 
 impl<T: Read, P: Unpack<T>> SizedTypeUnpack<T> for HashMap<String, P> {
     fn read_length(marker: Marker, reader: &mut T) -> Result<usize, DecodeError> {
-        match marker {
-            Marker::TinyDictionary(u) => Ok(u),
-            Marker::Dictionary8 => read_size_8(reader),
-            Marker::Dictionary16 => read_size_16(reader),
-            Marker::Dictionary32 => read_size_32(reader),
-            _ => Err(DecodeError::UnexpectedMarker(marker))
-        }
+        read_dict_size(marker, reader)
     }
 
     fn read_body(len: usize, reader: &mut T) -> Result<Self, DecodeError> {
@@ -188,6 +223,10 @@ impl<T: Read, P: Unpack<T>> SizedTypeUnpack<T> for HashMap<String, P> {
     }
 }
 
+
+// --------------------------------------- //
+//           Bytes Implementation          //
+// --------------------------------------- //
 impl SizedType for Bytes {
     fn header(&self) -> (Marker, Length) {
         let len =

@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use crate::error::{DecodeError, EncodeError};
 use byteorder::{ReadBytesExt, BigEndian, WriteBytesExt};
 use std::convert::TryFrom;
-use crate::ll::marker::{MarkerSizeInfo, Marker};
+use crate::ll::marker::Marker;
 
 pub fn read_size_8<T: Read>(reader: &mut T) -> Result<usize, DecodeError> {
     let u = reader.read_u8()?;
@@ -19,19 +19,64 @@ pub fn read_size_32<T: Read>(reader: &mut T) -> Result<usize, DecodeError> {
     TryFrom::try_from(u).or(Err(DecodeError::CannotReadSizeInfo))
 }
 
-pub fn read_size<T: Read>(size_info: MarkerSizeInfo, reader: &mut T) -> Result<usize, DecodeError> {
-    match size_info {
-        MarkerSizeInfo::Tiny => Ok(0),
-        MarkerSizeInfo::Bit8 => read_size_8(reader),
-        MarkerSizeInfo::Bit16 => read_size_16(reader),
-        MarkerSizeInfo::Bit32 => read_size_32(reader),
-        MarkerSizeInfo::None => Ok(0),
+/// Reads the size of a PackStream `Dictionary` as denoted by the marker. Reports `UnexpectedMarker`
+/// on markers which denote no `Dictionary`.
+/// ```
+/// use packs::ll::marker::Marker;
+/// use packs::ll::types::lengths::{read_dict_size, Length};
+///
+/// let mut buffer = Vec::with_capacity(2);
+/// Length::Bit16(42042).encode(&mut buffer).unwrap();
+///
+/// let size = read_dict_size(Marker::Dictionary16, &mut buffer.as_slice()).unwrap();
+///
+/// assert_eq!(42042, size);
+/// ```
+pub fn read_dict_size<T: Read>(marker: Marker, reader: &mut T) -> Result<usize, DecodeError> {
+    match marker {
+        Marker::TinyDictionary(u) => Ok(u),
+        Marker::Dictionary8 => read_size_8(reader),
+        Marker::Dictionary16 => read_size_16(reader),
+        Marker::Dictionary32 => read_size_32(reader),
+        _ => Err(DecodeError::UnexpectedMarker(marker))
+    }
+}
+
+/// Reads the size of a PackStream `List` as denoted by the marker. Analogous to
+/// [`read_dict_size`](crate::ll::types::lengths::read_dict_size).
+pub fn read_list_size<T: Read>(marker: Marker, reader: &mut T) -> Result<usize, DecodeError> {
+    match marker {
+        Marker::TinyList(u) => Ok(u),
+        Marker::List8 => read_size_8(reader),
+        Marker::List16 => read_size_16(reader),
+        Marker::List32 => read_size_32(reader),
+        _ => Err(DecodeError::UnexpectedMarker(marker))
+    }
+}
+
+/// Reads the size of a PackStream `String` as denoted by the marker.
+pub fn read_string_size<T: Read>(marker: Marker, reader: &mut T) -> Result<usize, DecodeError> {
+    match marker {
+        Marker::TinyString(u) => Ok(u),
+        Marker::String8 => read_size_8(reader),
+        Marker::String16 => read_size_16(reader),
+        Marker::String32 => read_size_32(reader),
+        _ => Err(DecodeError::UnexpectedMarker(marker))
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 /// The possible lengths for sized types like `String8`. The different sign extensions are according
-/// to the PackStream specification.
+/// to the PackStream specification. This type should be used for encoding any size information, e.g.
+/// the 32bit size information of a `String32` or `Dictionary32` can be encoded using `Length`:
+/// ```
+/// use packs::ll::types::lengths::Length;
+/// let mut buffer = Vec::with_capacity(4);
+/// Length::Bit32(420420).encode(&mut buffer);
+///
+/// assert_eq!(buffer, vec!(0x00, 0x06, 0x6A, 0x44), "Got: {:X?}", buffer);
+/// ```
+/// It does not shrink the size to any lower space (e.g. using `u8` instead of `i32`).
 pub enum Length {
     Tiny(u8),
     Bit8(u8),

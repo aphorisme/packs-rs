@@ -73,11 +73,12 @@ use crate::ll::marker::Marker;
 use byteorder::{ReadBytesExt, BigEndian, WriteBytesExt};
 use crate::ll::types::sized::{decode_sized, encode_sized, SizedTypeUnpack};
 use crate::error::{DecodeError, EncodeError};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::value::{Value};
 use crate::structure::struct_sum::{PackableStructSum};
 use crate::ll::types::lengths::{read_size_8, read_size_16, read_size_32};
 use crate::value::bytes::Bytes;
+use std::hash::Hash;
 
 /// Trait to encode values into any writer using PackStream; using a space efficient way
 /// to pack.
@@ -194,6 +195,14 @@ impl<T: Write, P: Pack<T>> Pack<T> for HashMap<String, P> {
     fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
         encode_sized(self, writer)
     }
+}
+
+impl<T: Read, P: Unpack<T> + Hash + Eq> Unpack<T> for HashSet<P> {
+    fn decode(reader: &mut T) -> Result<Self, DecodeError> { decode_sized(reader) }
+}
+
+impl<T: Write, P: Pack<T>> Pack<T> for HashSet<P> {
+    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> { encode_sized(self, writer) }
 }
 
 impl<T: Read> Unpack<T> for Bytes {

@@ -9,9 +9,9 @@ A [PackStream](https://7687.org/packstream/packstream-specification-1.html) impl
 it misses
 - More test coverage
 - Better documentation
+- A few ergonomic functions for its structs
 
-⚠️ Be aware that
-this package is part of a bigger project which might
+⚠️ Be aware that this package is part of a bigger project which might
 dictate another architecture and hence imply *heavy changes*.
 
 It will stay open source nevertheless and will continue to follow its
@@ -81,6 +81,6 @@ course! Especially utility functions for standard struct types,
 documentation and heavier test. I try to keep any open tasks as 
 issues in github for you to pick.
 
-I'm not into changing architecture for now though, as this library will be used 
+I'm not into changing architecture for now, as this library will be used 
 in a bigger project and I first have to see how it fits in; I'm open
 for suggestions though.

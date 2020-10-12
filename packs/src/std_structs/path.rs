@@ -24,14 +24,17 @@ pub mod test {
         pack_unpack_test::<Path<()>>(&[
             Path {
                 nodes: vec!(
-                    Node { id: 0, labels: vec!(String::from("Person"), String::from("Author")), properties: HashMap::new() },
+                    Node {
+                        id: 0,
+                        labels: vec!(String::from("Person"), String::from("Author")).into_iter().collect(),
+                        properties: HashMap::new() },
                     Node {
                         id: 1,
-                        labels: vec!(String::from("Book")),
+                        labels: vec!(String::from("Book")).into_iter().collect(),
                         properties: vec![(String::from("title"), Value::from("Puh der Bär"))].into_iter().collect()},
                     Node {
                         id: 4,
-                        labels: vec!(String::from("Person")),
+                        labels: vec!(String::from("Person")).into_iter().collect(),
                         properties: vec![
                             (String::from("name"), Value::from("Oliver")),
                             (String::from("age"), Value::from(i32::max_value() as i64 + 1))]
