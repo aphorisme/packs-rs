@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 use crate::*;
+use crate::std_structs::StdStruct;
 
 #[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
 #[tag = 0x52]
-pub struct Relationship<T> {
+pub struct Relationship {
     pub id: i64,
     pub start_node_id: i64,
     pub end_node_id: i64,
     pub _type: String,
-    pub properties: HashMap<String, Value<T>>
+    pub properties: HashMap<String, Value<StdStruct>>
 }
 
-impl<T> Relationship<T> {
+impl Relationship {
     pub fn new(id: i64, _type: &str, from: i64, to: i64) -> Self {
         Relationship {
             id,
@@ -22,7 +23,7 @@ impl<T> Relationship<T> {
         }
     }
 
-    pub fn add_property<V: Into<Value<T>>>(&mut self, key: &str, value: V) -> Option<Value<T>> {
+    pub fn add_property<V: Into<Value<StdStruct>>>(&mut self, key: &str, value: V) -> Option<Value<StdStruct>> {
         self.properties.insert(String::from(key), value.into())
     }
 }
@@ -35,7 +36,7 @@ pub mod test {
 
     #[test]
     fn pack_unpack() {
-        pack_unpack_test::<Relationship<()>>(&[
+        pack_unpack_test::<Relationship>(&[
             Relationship {
                 id: 42,
                 start_node_id: 1,

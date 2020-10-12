@@ -4,9 +4,9 @@ use crate::*;
 
 #[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
 #[tag = 0x50]
-pub struct Path<T> {
-    pub nodes: Vec<Node<T>>,
-    pub rels: Vec<Relationship<T>>,
+pub struct Path {
+    pub nodes: Vec<Node>,
+    pub rels: Vec<Relationship>,
     pub ids: Vec<i64>
 }
 
@@ -21,7 +21,7 @@ pub mod test {
 
     #[test]
     fn pack_unpack() {
-        pack_unpack_test::<Path<()>>(&[
+        pack_unpack_test::<Path>(&[
             Path {
                 nodes: vec!(
                     Node {

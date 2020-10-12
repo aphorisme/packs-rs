@@ -1,12 +1,13 @@
 use crate::*;
 use std::collections::HashMap;
+use crate::std_structs::StdStruct;
 
 #[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
 #[tag = 0x72]
-pub struct UnboundRelationship<T> {
+pub struct UnboundRelationship {
     pub id: i64,
     pub _type: String,
-    pub properties: HashMap<String, Value<T>>,
+    pub properties: HashMap<String, Value<StdStruct>>,
 }
 
 #[cfg(test)]
@@ -17,7 +18,7 @@ pub mod test {
 
     #[test]
     fn pack_unpack() {
-        pack_unpack_test::<UnboundRelationship<()>>(&[
+        pack_unpack_test::<UnboundRelationship>(&[
             UnboundRelationship {
                 id: 0,
                 _type: String::from("Hello # ö World"),

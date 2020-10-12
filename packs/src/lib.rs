@@ -11,7 +11,7 @@
 //! use packs::{Pack, Unpack};
 //! use packs::std_structs::Node;
 //!
-//! let mut node = <Node<()>>::new(42);
+//! let mut node = Node::new(42);
 //! node.add_property("title", "A Book's Title");
 //! node.add_property("pages", 302);
 //!
@@ -20,7 +20,7 @@
 //! node.encode(&mut buffer).unwrap();
 //!
 //! // and recover it from these bytes:
-//! let recovered = <Node<()>>::decode(&mut buffer.as_slice()).unwrap();
+//! let recovered = Node::decode(&mut buffer.as_slice()).unwrap();
 //!
 //! assert_eq!(node, recovered);
 //! ```
@@ -112,9 +112,8 @@
 //! assert_eq!(Value::Integer(42), value);
 //! ```
 //! The type `Value` is abstracted over possible structures. One can use `()` to deny any structures
-//! besides a unit structure with zero fields, or use `Value<StdStruct<()>>` (c.f. [`StdStruct`](crate::std_structs::StdStruct))
-//! to allow any standard structures as part of `Value` but the properties of the standard structs
-//! are only allowed to have the unit structure. (Basically, this is a typed recursive limit.)
+//! besides a unit structure with zero fields, or use `Value<StdStruct>` (c.f. [`StdStruct`](crate::std_structs::StdStruct))
+//! to allow any standard structures as part of `Value`.
 //!
 //! To continue on the example from above, `Value<MyStruct>` could have been used there as well:
 //! ```

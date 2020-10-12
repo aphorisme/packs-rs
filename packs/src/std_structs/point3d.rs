@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Clone, PackableStruct, Pack, Unpack)]
+#[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
 #[tag = 0x59]
 pub struct Point3D {
     pub srid: i64,

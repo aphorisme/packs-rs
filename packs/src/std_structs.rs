@@ -27,16 +27,16 @@ pub mod duration;
 pub mod point2d;
 pub mod point3d;
 
-#[derive(Debug, Clone, PackableStructSum)]
-pub enum StdStruct<T> {
+#[derive(Debug, Clone, PartialEq, PackableStructSum)]
+pub enum StdStruct {
     #[tag = 0x4E]
-    Node(Node<T>),
+    Node(Node),
     #[tag = 0x52]
-    Relationship(Relationship<T>),
+    Relationship(Relationship),
     #[tag = 0x72]
-    UnboundRelationship(UnboundRelationship<T>),
+    UnboundRelationship(UnboundRelationship),
     #[tag = 0x50]
-    Path(Path<T>),
+    Path(Path),
     #[tag = 0x44]
     Date(Date),
     #[tag = 0x54]
