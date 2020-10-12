@@ -1,15 +1,21 @@
 # packs
+[![Crates.io][crates-badge]][crates-url]
+[![Docs.io][docs-badge]][docs-url]
+
+
+[docs-badge]: https://docs.rs/packs/badge.svg
+[docs-url]: https://docs.rs/packs
+
+[crates-badge]: https://img.shields.io/crates/v/packs.svg
+[crates-url]: https://crates.io/crates/packs
 A [PackStream](https://7687.org/packstream/packstream-specification-1.html) implementation written in Rust 🦀.
 
 | PackStream Version | Supported Version |
 | :-----------:  |  :------------:   |
 |    1           |   1               |
 
-**State**: This package is on its way to version `0.1`. For it to reach `0.1`
-it misses
-- More test coverage
-- Better documentation
-- A few ergonomic functions for its structs
+
+⚠️ This package has yet to proof to be largely bug free.
 
 ⚠️ Be aware that this package is part of a bigger project which might
 dictate another architecture and hence imply *heavy changes*.

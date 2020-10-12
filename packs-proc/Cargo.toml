@@ -3,6 +3,11 @@ name = "packs-proc"
 version = "0.1.0"
 authors = ["Philipp Pfeiffer <pfiff@posteo.de>"]
 edition = "2018"
+license-file = "LICENSE"
+homepage = "https://github.com/aphorisme/packs-rs"
+description = "Derive macros for packs-rs"
+repository = "https://github.com/aphorisme/packs-rs"
+keywords = ["bolt", "packing", "serialization", "packstream", "neo4j"]
 
 [lib]
 proc-macro = true
