@@ -12,8 +12,7 @@ keywords = ["bolt", "packing", "serialization", "packstream", "neo4j"]
 [dependencies]
 byteorder = "^1.3.4"
 thiserror = "^1.0.20"
-packs-proc = { version = "0.1.0", optional = true }
-# packs-proc = { path = "../packs-proc", optional = true }
+packs-proc = { path = "../packs-proc", version = "0.1.0", optional = true }
 
 [features]
 default = ["std_structs"]
