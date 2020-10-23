@@ -12,8 +12,8 @@
 //! use packs::std_structs::Node;
 //!
 //! let mut node = Node::new(42);
-//! node.add_property("title", "A Book's Title");
-//! node.add_property("pages", 302);
+//! node.properties.add_property("title", "A Book's Title");
+//! node.properties.add_property("pages", 302);
 //!
 //! // encode `node` into a `Vec<u8>`:
 //! let mut buffer = Vec::new();
@@ -101,18 +101,18 @@
 //! [`Value`](crate::value::Value) which allows for decoding of any value without knowing its type
 //! beforehand.
 //! ```
-//! use packs::{Value, Unpack, Pack};
+//! use packs::{Value, Unpack, Pack, NoStruct};
 //! use packs::std_structs::StdStruct;
 //!
 //! let mut buffer = Vec::new();
 //! 42i64.encode(&mut buffer).unwrap();
 //!
-//! let value = <Value<()>>::decode(&mut buffer.as_slice()).unwrap();
+//! let value = <Value<NoStruct>>::decode(&mut buffer.as_slice()).unwrap();
 //!
 //! assert_eq!(Value::Integer(42), value);
 //! ```
-//! The type `Value` is abstracted over possible structures. One can use `()` to deny any structures
-//! besides a unit structure with zero fields, or use `Value<StdStruct>` (c.f. [`StdStruct`](crate::std_structs::StdStruct))
+//! The type `Value` is abstracted over possible structures. One can use `NoStruct` to deny any
+//! structures or use `Value<StdStruct>` (c.f. [`StdStruct`](crate::std_structs::StdStruct))
 //! to allow any standard structures as part of `Value`.
 //!
 //! To continue on the example from above, `Value<MyStruct>` could have been used there as well:
@@ -169,9 +169,10 @@ pub use std::io::Read;
 // Public API:
 pub use packable::{Pack, Unpack};
 pub use error::{EncodeError, DecodeError};
-pub use value::Value;
+pub use value::{Value, Extract, ExtractRef, ExtractMut};
 pub use value::bytes::Bytes;
+pub use value::dictionary::Dictionary;
 pub use structure::packable_struct::{PackableStruct};
 pub use structure::{encode_struct, decode_struct};
 pub use structure::generic_struct::GenericStruct;
-pub use structure::struct_sum::PackableStructSum;
+pub use structure::struct_sum::{PackableStructSum, NoStruct};

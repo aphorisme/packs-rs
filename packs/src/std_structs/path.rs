@@ -13,10 +13,9 @@ pub struct Path {
 #[cfg(test)]
 pub mod test {
     use crate::packable::test::pack_unpack_test;
-    use crate::Value;
+    use crate::{Value, Dictionary};
     use crate::std_structs::path::Path;
     use crate::std_structs::node::Node;
-    use std::collections::HashMap;
     use crate::std_structs::relationship::Relationship;
 
     #[test]
@@ -27,7 +26,7 @@ pub mod test {
                     Node {
                         id: 0,
                         labels: vec!(String::from("Person"), String::from("Author")).into_iter().collect(),
-                        properties: HashMap::new() },
+                        properties: Dictionary::new() },
                     Node {
                         id: 1,
                         labels: vec!(String::from("Book")).into_iter().collect(),
@@ -48,14 +47,14 @@ pub mod test {
                         start_node_id: 0,
                         end_node_id: 1,
                         _type: String::from("HAS_WRITTEN"),
-                        properties: HashMap::new() },
+                        properties: Dictionary::new() },
 
                     Relationship {
                         id: 1,
                         start_node_id: 4,
                         end_node_id: 1,
                         _type: String::from("HAS_READ"),
-                        properties: HashMap::new() },
+                        properties: Dictionary::new() },
                 ),
                 ids: vec!(0i64, 0i64, 1i64),
             }

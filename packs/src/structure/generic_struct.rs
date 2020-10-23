@@ -34,14 +34,14 @@ use crate::packable::{Pack, Unpack};
 /// ```
 pub struct GenericStruct {
     pub tag_byte: u8,
-    pub fields: Vec<Value<()>>,
+    pub fields: Vec<Value<GenericStruct>>,
 }
 
 impl PackableStructSum for GenericStruct {
     fn read_struct_body<T: Read>(size: usize, tag_byte: u8, reader: &mut T) -> Result<Self, DecodeError> {
         let mut fields = Vec::with_capacity(size);
         for _ in 0..size {
-            let value = <Value<()>>::decode(reader)?;
+            let value = Value::decode(reader)?;
             fields.push(value);
         }
 

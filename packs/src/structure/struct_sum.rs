@@ -66,11 +66,14 @@ pub trait PackableStructSum: Sized {
     fn tag_byte(&self) -> u8;
 }
 
-/// A unit implementation for `StructVariant` which can be used a placeholder to deny any
+#[derive(Debug, PartialEq)]
+/// A void implementation for `PackableStructSum` which can be used a placeholder to deny any
 /// structures.
-impl PackableStructSum for () {
+pub enum NoStruct {}
+
+impl PackableStructSum for NoStruct {
     fn read_struct_body<T: Read>(_: usize, _: u8, _: &mut T) -> Result<Self, DecodeError> {
-        Ok(())
+        panic!("Trying to read Empty Struct Sum.")
     }
 
     fn write_struct_body<T: Write>(&self, _: &mut T) -> Result<usize, EncodeError> {
@@ -82,7 +85,7 @@ impl PackableStructSum for () {
     }
 
     fn tag_byte(&self) -> u8 {
-        0x00
+        panic!("Trying to retrieve tag byte for Empty Struct Sum")
     }
 }
 

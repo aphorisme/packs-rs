@@ -79,6 +79,7 @@ use crate::structure::struct_sum::{PackableStructSum};
 use crate::ll::types::lengths::{read_size_8, read_size_16, read_size_32};
 use crate::value::bytes::Bytes;
 use std::hash::Hash;
+use crate::value::dictionary::Dictionary;
 
 /// Trait to encode values into any writer using PackStream; using a space efficient way
 /// to pack.
@@ -197,6 +198,18 @@ impl<T: Write, P: Pack<T>> Pack<T> for HashMap<String, P> {
     }
 }
 
+impl<T: Read, P: PackableStructSum> Unpack<T> for Dictionary<P> {
+    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
+        decode_sized(reader)
+    }
+}
+
+impl<T: Write, P: PackableStructSum> Pack<T> for Dictionary<P> {
+    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        encode_sized(self, writer)
+    }
+}
+
 impl<T: Read, P: Unpack<T> + Hash + Eq> Unpack<T> for HashSet<P> {
     fn decode(reader: &mut T) -> Result<Self, DecodeError> { decode_sized(reader) }
 }
@@ -305,10 +318,10 @@ impl<T: Read, S: PackableStructSum> Unpack<T> for Value<S> {
             Marker::List16 => read_size_16(reader).and_then(|i| <Vec<Value<S>>>::read_body(i as usize, reader)).map(Value::List),
             Marker::List32 => read_size_32(reader).and_then(|i| <Vec<Value<S>>>::read_body(i as usize, reader)).map(Value::List),
 
-            Marker::TinyDictionary(size) => <HashMap<String, Value<S>>>::read_body(size, reader).map(Value::Dictionary),
-            Marker::Dictionary8 => read_size_8(reader).and_then(|i| <HashMap<String, Value<S>>>::read_body(i, reader)).map(Value::Dictionary),
-            Marker::Dictionary16 => read_size_16(reader).and_then(|i| <HashMap<String, Value<S>>>::read_body(i as usize, reader)).map(Value::Dictionary),
-            Marker::Dictionary32 => read_size_32(reader).and_then(|i| <HashMap<String, Value<S>>>::read_body(i as usize, reader)).map(Value::Dictionary),
+            Marker::TinyDictionary(size) => <Dictionary<S>>::read_body(size, reader).map(Value::Dictionary),
+            Marker::Dictionary8 => read_size_8(reader).and_then(|i| <Dictionary<S>>::read_body(i, reader)).map(Value::Dictionary),
+            Marker::Dictionary16 => read_size_16(reader).and_then(|i| <Dictionary<S>>::read_body(i as usize, reader)).map(Value::Dictionary),
+            Marker::Dictionary32 => read_size_32(reader).and_then(|i| <Dictionary<S>>::read_body(i as usize, reader)).map(Value::Dictionary),
 
             Marker::Bytes8 => read_size_8(reader).and_then(|i| <Bytes>::read_body(i, reader)).map(Value::Bytes),
             Marker::Bytes16 => read_size_16(reader).and_then(|i| <Bytes>::read_body(i as usize, reader)).map(Value::Bytes),
@@ -331,7 +344,7 @@ impl<T: Write, S: PackableStructSum> Pack<T> for Value<S> {
             Value::Float(f) => f64::encode(f, writer),
             Value::String(s) => String::encode(s, writer),
             Value::Bytes(bs) => Bytes::encode(bs, writer),
-            Value::Dictionary(d) => <HashMap<String, Value<S>>>::encode(d, writer),
+            Value::Dictionary(d) => <Dictionary<S>>::encode(d, writer),
             Value::List(l) => <Vec<Value<S>>>::encode(l, writer),
             Value::Structure(s) => {
                 Marker::Structure(s.fields_len()).encode(writer)?;
@@ -350,6 +363,7 @@ pub mod test {
     use crate::ll::marker::{MarkerHighNibble};
     use std::collections::HashMap;
     use crate::value::{Value};
+    use crate::structure::struct_sum::NoStruct;
 
     pub fn unpack_pack_test<'a, T: Unpack<&'a [u8]> + Pack<Vec<u8>>>(mut buffer: &'a [u8]) {
         let compare = Vec::from(buffer);
@@ -580,7 +594,7 @@ pub mod test {
                 42.into(), "hello".into()
             ]
         );*/
-        let value : Value<()> = Value::Boolean(true);
+        let value : Value<NoStruct> = Value::Boolean(true);
 
         let mut buffer: Vec<u8> = Vec::new();
         value.encode(&mut buffer).unwrap();

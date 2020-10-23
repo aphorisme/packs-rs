@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::*;
 use crate::std_structs::StdStruct;
 
@@ -9,7 +8,7 @@ pub struct Relationship {
     pub start_node_id: i64,
     pub end_node_id: i64,
     pub _type: String,
-    pub properties: HashMap<String, Value<StdStruct>>
+    pub properties: Dictionary<StdStruct>
 }
 
 impl Relationship {
@@ -19,12 +18,8 @@ impl Relationship {
             start_node_id: from,
             end_node_id: to,
             _type: String::from(_type),
-            properties: HashMap::new(),
+            properties: Dictionary::new(),
         }
-    }
-
-    pub fn add_property<V: Into<Value<StdStruct>>>(&mut self, key: &str, value: V) -> Option<Value<StdStruct>> {
-        self.properties.insert(String::from(key), value.into())
     }
 }
 
