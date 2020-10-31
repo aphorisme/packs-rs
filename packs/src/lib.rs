@@ -52,10 +52,10 @@
 //! assert_eq!(book, recovered);
 //! ```
 //! ## Providing a sum type
-//! Usually, all user defined structs are sumed up in an `enum` which denotes all possible structs
+//! User defined structs are often sumed up in an `enum` which denotes all possible structs
 //! the protocol should be able to encode and decode. This can be given by deriving `PackableStructSum`.
-//! The `tag` attribute on the different variants is optional; if no tag is provided, the successor
-//! of the previous is taken, starting with `0x01`.
+//! The `tag` attribute on the different variants is not optional, but it can differ from the one `tag`
+//! attribute provided to the structs themselves.
 //! ```
 //! use packs::*;
 //!
@@ -72,12 +72,12 @@
 //!     pub name: String,
 //! }
 //!
-//! // no need for Pack nor Unpack here, the PackableStructSum takes care of this already.
-//! #[derive(Debug, PartialEq, PackableStructSum)]
+//! #[derive(Debug, PartialEq, PackableStructSum, Pack, Unpack)]
 //! enum MyStruct {
 //!     #[tag = 0x0B] // can be a different tag, but same here for consistency
 //!     Book(Book),
-//!     Person(Person), // gets 0x0C
+//!     #[tag = 0x0C]
+//!     Person(Person),
 //! }
 //!
 //! let person = Person { name: String::from("Check Mate") };
@@ -129,11 +129,12 @@
 //! # struct Person {
 //! #     pub name: String,
 //! # }
-//! # #[derive(Debug, PartialEq, PackableStructSum)]
+//! # #[derive(Debug, PartialEq, PackableStructSum, Pack, Unpack)]
 //! # enum MyStruct {
 //! #    #[tag = 0x0B] // can be a different tag, but same here for consistency
 //! #    Book(Book),
-//! #    Person(Person), // gets 0x0C
+//! #    #[tag = 0x0C]
+//! #    Person(Person),
 //! # }
 //! let mut buffer = Vec::new();
 //! let person = Person { name: String::from("Check Mate") };
@@ -172,6 +173,7 @@ pub use error::{EncodeError, DecodeError};
 pub use value::{Value, Extract, ExtractRef, ExtractMut};
 pub use value::bytes::Bytes;
 pub use value::dictionary::Dictionary;
+pub use ll::marker::Marker;
 pub use structure::packable_struct::{PackableStruct};
 pub use structure::{encode_struct, decode_struct};
 pub use structure::generic_struct::GenericStruct;

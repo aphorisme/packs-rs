@@ -66,7 +66,7 @@
 //! Structures are packed with an extra tag byte to denote which structure is packed.
 
 
-use std::io::{Read, Write};
+use std::io::{Read, Write, Seek, SeekFrom};
 use crate::ll::types::fixed::{encode_i32, encode_plus_tiny_int, encode_minus_tiny_int, encode_i8, encode_i16, encode_i64, byte_to_minus_tiny_int};
 use crate::ll::bounds::{is_in_plus_tiny_int_bound, is_in_minus_tiny_int_bound, is_in_i8_bound, is_in_i16_bound, is_in_i32_bound};
 use crate::ll::marker::Marker;
@@ -287,6 +287,19 @@ impl<T: Write, P: Pack<T>> Pack<T> for Option<P> {
         } else {
             Marker::Null.encode(writer)?;
             Ok(1)
+        }
+    }
+}
+
+impl<T: Read + Seek, P: Unpack<T>> Unpack<T> for Option<P> {
+    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
+        let marker = Marker::decode(reader)?;
+        match marker {
+            Marker::Null => Ok(None),
+            _ => {
+                reader.seek(SeekFrom::Current(-1))?;
+                P::decode(reader).map(Some)
+            }
         }
     }
 }

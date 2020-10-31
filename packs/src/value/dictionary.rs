@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::{Value, EncodeError, PackableStructSum, Pack, DecodeError, Unpack};
+use crate::{Value, EncodeError, PackableStructSum, Pack, DecodeError, Unpack, Extract};
 use std::io::{Write, Read};
 use crate::ll::types::sized::{SizedTypePack, SizedTypeUnpack, SizedType};
 use crate::ll::marker::Marker;
@@ -29,6 +29,22 @@ impl<T> Dictionary<T> {
         self.0.insert(String::from(key), value.into())
     }
 
+    pub fn has_property(&self, key: &str) -> bool {
+        self.0.contains_key(key)
+    }
+
+    pub fn extract_property(&mut self, key: &str) -> Option<Value<T>> {
+        self.0.remove(key)
+    }
+
+    /// Removes the property from the dictionary and returns it. Tries to extract the value
+    /// strongly typed.
+    ///
+    /// **Panics** if it cannot cast the value to provided type.
+    pub fn extract_property_typed<V: Extract<T>>(&mut self, key: &str) -> Option<V> {
+        self.0.remove(key).map(|v| V::extract(v).unwrap())
+    }
+
     /// Retrieves a property.
     pub fn get_property(&self, key: &str) -> Option<&Value<T>> {
         self.0.get(key)
@@ -36,8 +52,7 @@ impl<T> Dictionary<T> {
 
     /// Retrieves the value of a property in a strongly typed manner.
     ///
-    /// **Panics** if it cannot cast the value to provided type. This is always the case on
-    /// `Value::Null`.
+    /// **Panics** if it cannot cast the value to provided type.
     /// ```
     /// # use packs::*;
     /// // create a Dictionary with a list of values as property:

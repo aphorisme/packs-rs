@@ -11,9 +11,9 @@ pub mod dictionary;
 /// A type for all possible values which can be serialized through PackStream.
 /// This type abstracts over structure types, which allows the user to define
 /// their own structures which should be part of `Value`. There are two standard
-/// implementations, either `Value<()>` to denote a value where only the unit is
+/// implementations, either `Value<NoStruct>` to denote a value where nothing further
 /// allowed as a structure, or `Value<GenericStruct>` which reads any valid structure
-/// in a generic way, see [`GenericStruct`](crate::structure::generic_struct::GenericStruct).
+/// generic, see [`GenericStruct`](crate::structure::generic_struct::GenericStruct).
 ///
 /// In conjunction with `std_structs` one can use `Value<StdStruct>` to use the default
 /// structs as given by the PackStream specification.
@@ -73,14 +73,25 @@ pub mod dictionary;
 /// PackStream has `Value::Null` as a possible value, denoting the absence of a value. From
 /// within Rust, this transforms any `Value -> T` into a `Value -> Option<T>`, returning `None`
 /// on `Value::Null`; but since this is only one way to treat `Value::Null` this package does not
-/// decide but provides different ways to extract values. using `extract` from above will always
-/// fail with `None` on a `Value::Null`. But there are `opt` variants of the `extract` functions to
-/// treat a `Value` as an `Option<T>`:
+/// decide but provides different ways to extract values:
+///
+/// 1. The trait `Extract<T>` has an implementation for `Option<E: Extract<T>>` to treat `Value::Null` as `None`.
+/// 2. The traits `ExtractMut<T>` and `ExtractRef<T>` provide functions with default implementations to extract
+/// any `Value::Null` as a `None` and treat every other `v` as `Some(v)`.
+/// 3. Otherwise, any extract of `Value::Null` will fail with `None`.
 /// ```
 /// use packs::*;
 ///
-/// let value : Value<()> = Value::Boolean(true);
-/// assert_eq!(bool::extract_opt(value).unwrap(), Some(true));
+/// // case 1:
+/// assert_eq!(<Option<bool>>::extract(<Value<NoStruct>>::Boolean(true)), Some(Some(true)));
+/// assert_eq!(<Option<bool>>::extract(<Value<NoStruct>>::Null), Some(None));
+///
+/// // case 2:
+/// assert_eq!(<bool>::extract_opt_ref(&<Value<NoStruct>>::Boolean(true)), Some(Some(&true)));
+/// assert_eq!(<bool>::extract_opt_ref(&<Value<NoStruct>>::Null), Some(None));
+///
+/// // case 3:
+/// assert_eq!(<bool>::extract_ref(&<Value<NoStruct>>::Null), None)
 /// ```
 pub enum Value<S> {
     Null,
@@ -130,6 +141,16 @@ impl<S> From<Vec<Value<S>>> for Value<S> {
     }
 }
 
+impl<S, V: Into<Value<S>>> From<Option<V>> for Value<S> {
+    fn from(opt: Option<V>) -> Self {
+        if let Some(v) = opt {
+            v.into()
+        } else {
+            Value::Null
+        }
+    }
+}
+
 impl<S, V: Into<Value<S>>> FromIterator<V> for Value<S> {
     fn from_iter<T: IntoIterator<Item=V>>(iter: T) -> Self {
         Value::List(iter.into_iter().map(|v| v.into()).collect())
@@ -153,36 +174,29 @@ impl<S, V: Into<Value<S>>> FromIterator<(String, V)> for Value<S> {
 /// let value : Value<()> = Value::Integer(42);
 /// assert_eq!(i64::extract(value), Some(42))
 /// ```
-/// For each accessibility kind there is an `opt` variant, treating a `Value` as a `Option<T>`, where
+/// For each accessibility kind there is an `Option` variant, treating a `Value` as a `Option<T>`, where
 /// `Value::Null` denotes `None` and every other value is tried to get parsed into `Some(t)`:
 /// ```
 /// # use packs::{Value, Extract};
 ///
 /// // any `Value::Null` is a `None`:
 /// let value : Value<()> = Value::Null;
-/// assert_eq!(String::extract_opt(value).unwrap(), None);
+/// assert_eq!(<Option<String>>::extract(value), Some(None));
 ///
 /// let value : Value<()> = Value::String(String::from("Hello World!"));
-/// assert_eq!(String::extract_opt(value).unwrap(), Some(String::from("Hello World!")));
+/// assert_eq!(<Option<String>>::extract(value), Some(Some(String::from("Hello World!"))));
 /// ```
-/// Those `opt` variants have default implementations.
 pub trait Extract<T> : Sized {
     fn extract(from: Value<T>) -> Option<Self>;
-    fn extract_opt(from: Value<T>) -> Option<Option<Self>> {
-        match from {
-            Value::Null => Some(None),
-            t => Self::extract(t).map(Some)
-        }
-    }
 }
 
 /// An `Extract` variant for borrowed values.
 pub trait ExtractRef<T> : Sized {
     fn extract_ref(from: &Value<T>) -> Option<&Self>;
-    fn extract_ref_opt(from: &Value<T>) -> Option<Option<&Self>> {
+    fn extract_opt_ref(from: &Value<T>) -> Option<Option<&Self>> {
         match from {
             Value::Null => Some(None),
-            t => Self::extract_ref(t).map(Some)
+            v => Self::extract_ref(v).map(Some)
         }
     }
 }
@@ -193,7 +207,7 @@ pub trait ExtractMut<T> : Sized {
     fn extract_opt_mut(from: &mut Value<T>) -> Option<Option<&mut Self>> {
         match from {
             Value::Null => Some(None),
-            t => Self::extract_mut(t).map(Some)
+            v => Self::extract_mut(v).map(Some)
         }
     }
 }
@@ -235,6 +249,15 @@ impl_extract!(Bytes, Bytes);
 impl_extract!(String, String);
 impl_extract!(Vec<Value<T>>, List);
 impl_extract!(Dictionary<T>, Dictionary);
+
+impl<T, E: Extract<T>> Extract<T> for Option<E> {
+    fn extract(from: Value<T>) -> Option<Self> {
+        match from {
+            Value::Null => Some(None),
+            v => E::extract(v).map(Some)
+        }
+    }
+}
 
 /// Extracts a `Value::List` with the same runtime type values into a vector of extracted values.
 /// ```

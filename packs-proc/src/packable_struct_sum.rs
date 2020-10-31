@@ -1,6 +1,7 @@
 use syn::export::TokenStream;
 use quote::quote;
-use crate::common::{get_tag_attr, gen_packable_struct_sum_constraint, gen_type_param};
+use crate::common::{gen_packable_struct_sum_constraint, gen_type_param, get_singleton_field_type};
+use crate::common::enums::Tags;
 
 pub fn impl_packable_struct_sum(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
@@ -9,34 +10,17 @@ pub fn impl_packable_struct_sum(ast: &syn::DeriveInput) -> TokenStream {
     let ty_read_write = gen_type_param();
     match &ast.data {
         syn::Data::Enum(e) => {
-            let mut tags = Vec::with_capacity(e.variants.len());
-            let mut last_tag = 0x00u8;
+            let mut tags = Tags::with_capacity(e.variants.len());
             let mut pack = proc_macro2::TokenStream::new();
             let mut field_lens = proc_macro2::TokenStream::new();
             let mut get_tag_byte = proc_macro2::TokenStream::new();
             let mut unpack = proc_macro2::TokenStream::new();
             for v in e.variants.iter() {
-                // look for tag:
-                let tag =
-                    if let Some(val) = get_tag_attr(&v.attrs) {
-                        last_tag = val;
-                        val
-                    } else {
-                        last_tag += 1;
-                        last_tag
-                    };
-                if tags.contains(&tag) {
-                    panic!("Tag '{:X}' is not unique!", tag);
-                }
-
-                tags.push(tag);
-
+                tags.add_from_attr(&v.attrs);
+                let tag = tags.last_tag();
+                
                 let ident = &v.ident;
-                let ty = if v.fields.len() != 1 {
-                    panic!("Variant '{}' has != 1 fields.", ident)
-                } else {
-                    &v.fields.iter().next().unwrap().ty
-                };
+                let ty = get_singleton_field_type(v);
 
                 pack.extend(quote! {
                     #name::#ident(ref p) => <#ty as PackableStruct>::write_structure_body(p, writer),

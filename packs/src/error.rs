@@ -15,6 +15,8 @@ pub enum DecodeError {
     UnexpectedTagByte(u8),
     #[error("Expected {0} fields but got {1}")]
     UnexpectedNumberOfFields(usize, usize),
+    #[error("Not allowed to decode NoStruct")]
+    TryingToDecodeNoStruct,
 }
 
 #[derive(Error, Debug)]

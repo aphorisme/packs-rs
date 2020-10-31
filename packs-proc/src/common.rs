@@ -1,10 +1,19 @@
-use syn::Attribute;
+use syn::{Attribute, Variant, Type};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 
+pub mod enums;
 
 pub fn gen_type_param() -> syn::Ident {
     syn::Ident::new("T__PACKS_PROC_IMPL_PACKUNPACK", Span::call_site())
+}
+
+pub fn get_singleton_field_type(v: &Variant) -> &Type {
+    if v.fields.len() != 1 {
+        panic!("Variant '{}' has != 1 fields", v.ident)
+    } else {
+        &v.fields.iter().next().unwrap().ty
+    }
 }
 
 pub fn gen_packable_struct_sum_constraint(generics: &syn::Generics) -> TokenStream {

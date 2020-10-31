@@ -7,7 +7,7 @@ use crate::{DecodeError, EncodeError};
 /// ## Implementation
 /// This trait can be derived using `#[derive(PackableStruct)]` if all fields implement
 /// [`Pack`](crate::packable::Pack) and [`Unpack`](crate::packable::Unpack) and there are at most
-///  `15` fields. This is the recommend way of using this trait.
+///  `15` fields. This is the recommended way of using this trait.
 ///
 /// For a valid implementation in the context of PackStream, the limit of 15 fields must not be
 /// exceeded.

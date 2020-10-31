@@ -1,7 +1,6 @@
 use std::io::{Read, Write};
 use crate::{DecodeError, EncodeError, Pack, Unpack};
 use crate::ll::marker::Marker;
-use byteorder::{WriteBytesExt, ReadBytesExt};
 
 /// A sum type of possible structs this type supports. The type is a trait to abstract away
 /// from a type which looks something like
@@ -84,45 +83,21 @@ impl PackableStructSum for NoStruct {
         0
     }
 
-    fn tag_byte(&self) -> u8 {
-        panic!("Trying to retrieve tag byte for Empty Struct Sum")
+    fn tag_byte(&self) -> u8 { 0x00 }
+}
+
+impl<T: Write> Pack<T> for NoStruct {
+    fn encode(&self, _: &mut T) -> Result<usize, EncodeError> {
+        unreachable!()
     }
 }
 
-impl<S: PackableStructSum, T: Write> Pack<T> for S {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
-        Marker::Structure(self.fields_len()).encode(writer)?;
-        writer.write_u8(self.tag_byte())?;
-        Ok(2 + self.write_struct_body(writer)?)
-    }
-}
-
-impl<S: PackableStructSum, T: Read> Unpack<T> for S {
+impl<T: Read> Unpack<T> for NoStruct {
     fn decode(reader: &mut T) -> Result<Self, DecodeError> {
         let marker = Marker::decode(reader)?;
         match marker {
-            Marker::Structure(sz) => {
-                let tag_byte = reader.read_u8()?;
-                S::read_struct_body(sz, tag_byte, reader)
-            },
+            Marker::Structure(_) => Err(DecodeError::TryingToDecodeNoStruct),
             _ => Err(DecodeError::UnexpectedMarker(marker))
         }
     }
-}
-
-#[cfg(test)]
-pub mod test {
-    use crate::{PackableStructSum, Pack, Unpack};
-    use std::fmt::Debug;
-
-    pub fn pack_unpack_struct_sum_test<T: PackableStructSum + PartialEq + Debug>(value: &T, expected_size: usize) {
-        let mut buffer = Vec::new();
-
-        let written = T::encode(value, &mut buffer).unwrap();
-        assert_eq!(expected_size, written);
-
-        let res: T = T::decode(&mut buffer.as_slice()).unwrap();
-        assert_eq!(value, &res, "value '{:?}' got encoded->decoded into '{:?}'", value, res);
-    }
-
 }

@@ -1,5 +1,5 @@
 use crate::*;
-use crate::std_structs::StdStruct;
+use crate::std_structs::{StdStructPrimitive};
 
 #[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
 #[tag = 0x52]
@@ -8,7 +8,7 @@ pub struct Relationship {
     pub start_node_id: i64,
     pub end_node_id: i64,
     pub _type: String,
-    pub properties: Dictionary<StdStruct>
+    pub properties: Dictionary<StdStructPrimitive>
 }
 
 impl Relationship {

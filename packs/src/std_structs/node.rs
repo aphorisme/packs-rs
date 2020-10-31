@@ -1,13 +1,13 @@
 use std::collections::{HashSet};
 use crate::*;
-use crate::std_structs::StdStruct;
+use crate::std_structs::{StdStructPrimitive};
 
 #[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
 #[tag = 0x4E]
 pub struct Node {
     pub id: i64,
     pub labels: HashSet<String>,
-    pub properties: Dictionary<StdStruct>
+    pub properties: Dictionary<StdStructPrimitive>
 }
 
 impl Node {

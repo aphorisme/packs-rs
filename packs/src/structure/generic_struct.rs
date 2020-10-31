@@ -1,6 +1,8 @@
 use std::io::{Read, Write};
 use crate::{DecodeError, EncodeError, Value, PackableStructSum};
 use crate::packable::{Pack, Unpack};
+use crate::ll::marker::Marker;
+use byteorder::{WriteBytesExt, ReadBytesExt};
 
 #[derive(Debug, Clone, PartialEq)]
 /// An anonymous, generic variant for structure values. It does denote different structures by
@@ -65,6 +67,27 @@ impl PackableStructSum for GenericStruct {
 
     fn tag_byte(&self) -> u8 {
         self.tag_byte
+    }
+}
+
+impl<T: Write> Pack<T> for GenericStruct {
+    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        Marker::Structure(self.fields_len()).encode(writer)?;
+        writer.write_u8(self.tag_byte())?;
+        Ok(2 + self.write_struct_body(writer)?)
+    }
+}
+
+impl<T: Read> Unpack<T> for GenericStruct {
+    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
+        let marker = Marker::decode(reader)?;
+        match marker {
+            Marker::Structure(sz) => {
+                let tag_byte = reader.read_u8()?;
+                GenericStruct::read_struct_body(sz, tag_byte, reader)
+            },
+            _ => Err(DecodeError::UnexpectedMarker(marker))
+        }
     }
 }
 
