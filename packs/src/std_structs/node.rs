@@ -2,7 +2,7 @@ use std::collections::{HashSet};
 use crate::*;
 use crate::std_structs::{StdStructPrimitive};
 
-#[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
 #[tag = 0x4E]
 pub struct Node {
     pub id: i64,

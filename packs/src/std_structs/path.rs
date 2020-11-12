@@ -2,7 +2,7 @@ use crate::std_structs::relationship::Relationship;
 use crate::std_structs::node::Node;
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
 #[tag = 0x50]
 pub struct Path {
     pub nodes: Vec<Node>,

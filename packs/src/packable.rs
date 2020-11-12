@@ -66,52 +66,54 @@
 //! Structures are packed with an extra tag byte to denote which structure is packed.
 
 
-use std::io::{Read, Write, Seek, SeekFrom};
-use crate::ll::types::fixed::{encode_i32, encode_plus_tiny_int, encode_minus_tiny_int, encode_i8, encode_i16, encode_i64, byte_to_minus_tiny_int};
-use crate::ll::bounds::{is_in_plus_tiny_int_bound, is_in_minus_tiny_int_bound, is_in_i8_bound, is_in_i16_bound, is_in_i32_bound};
-use crate::ll::marker::Marker;
-use byteorder::{ReadBytesExt, BigEndian, WriteBytesExt};
-use crate::ll::types::sized::{decode_sized, encode_sized, SizedTypeUnpack};
-use crate::error::{DecodeError, EncodeError};
 use std::collections::{HashMap, HashSet};
-use crate::value::{Value};
-use crate::structure::struct_sum::{PackableStructSum};
-use crate::ll::types::lengths::{read_size_8, read_size_16, read_size_32};
-use crate::value::bytes::Bytes;
 use std::hash::Hash;
+use std::io::{Read, Write};
+
+use crate::error::{DecodeError, EncodeError};
+use crate::ll::bounds::{is_in_i16_bound, is_in_i32_bound, is_in_i8_bound, is_in_minus_tiny_int_bound, is_in_plus_tiny_int_bound};
+use crate::ll::marker::Marker;
+use crate::ll::types::fixed::{byte_to_minus_tiny_int, encode_i16, encode_i32, encode_i64, encode_i8, encode_minus_tiny_int, encode_plus_tiny_int, decode_body_i8, decode_body_i16, decode_body_i32, decode_body_i64, decode_body_f64, encode_f64};
+use crate::ll::types::lengths::{Length, read_size_16, read_size_32, read_size_8, read_string_size, read_list_size, read_dict_size};
+use crate::ll::types::sized::{write_body_by_iter};
+use crate::value::Value;
+use crate::value::bytes::Bytes;
 use crate::value::dictionary::Dictionary;
 
 /// Trait to encode values into any writer using PackStream; using a space efficient way
 /// to pack.
-pub trait Pack<T: Write> : Sized {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError>;
+pub trait Pack: Sized {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError>;
 }
 
 /// Trait to decode values from a stream using PackStream.
-pub trait Unpack<T: Read> : Sized {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError>;
+pub trait Unpack: Sized {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError>;
+    fn decode<T: Read>(reader: &mut T) -> Result<Self, DecodeError> {
+        let marker = Marker::decode(reader)?;
+        Self::decode_body(marker, reader)
+    }
 }
 
-impl<T: Read> Unpack<T> for i64 {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        let marker = Marker::decode(reader)?;
+impl Unpack for i64 {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
         match marker {
             Marker::PlusTinyInt(value) => Ok(value as i64),
             Marker::MinusTinyInt(value) => {
                 Ok(byte_to_minus_tiny_int(value) as i64)
-            },
-            Marker::Int8 => Ok(reader.read_i8()? as i64),
-            Marker::Int16 => Ok(reader.read_i16::<BigEndian>()? as i64),
-            Marker::Int32 => Ok(reader.read_i32::<BigEndian>()? as i64),
-            Marker::Int64 => Ok(reader.read_i64::<BigEndian>()?),
+            }
+            Marker::Int8 => Ok(decode_body_i8(reader)? as i64),
+            Marker::Int16 => Ok(decode_body_i16(reader)? as i64),
+            Marker::Int32 => Ok(decode_body_i32(reader)? as i64),
+            Marker::Int64 => Ok(decode_body_i64(reader)?),
 
             _ => Err(DecodeError::UnexpectedMarker(marker))
         }
     }
 }
 
-impl<T: Write> Pack<T> for i64 {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
+impl Pack for i64 {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
         if is_in_plus_tiny_int_bound(*self) {
             Ok(encode_plus_tiny_int(*self as u8, writer)?)
         } else if is_in_minus_tiny_int_bound(*self) {
@@ -128,25 +130,24 @@ impl<T: Write> Pack<T> for i64 {
     }
 }
 
-impl<T: Read> Unpack<T> for i32 {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        let marker = Marker::decode(reader)?;
+impl Unpack for i32 {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
         match marker {
             Marker::PlusTinyInt(value) => Ok(value as i32),
             Marker::MinusTinyInt(value) => {
                 Ok(byte_to_minus_tiny_int(value) as i32)
-            },
-            Marker::Int8 => Ok(reader.read_i8()? as i32),
-            Marker::Int16 => Ok(reader.read_i16::<BigEndian>()? as i32),
-            Marker::Int32 => Ok(reader.read_i32::<BigEndian>()?),
+            }
+            Marker::Int8 => Ok(decode_body_i8(reader)? as i32),
+            Marker::Int16 => Ok(decode_body_i16(reader)? as i32),
+            Marker::Int32 => Ok(decode_body_i32(reader)?),
 
             _ => Err(DecodeError::UnexpectedMarker(marker))
         }
     }
 }
 
-impl<T: Write> Pack<T> for i32 {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
+impl Pack for i32 {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
         if is_in_plus_tiny_int_bound(*self as i64) {
             Ok(encode_plus_tiny_int(*self as u8, writer)?)
         } else if is_in_minus_tiny_int_bound(*self as i64) {
@@ -161,105 +162,178 @@ impl<T: Write> Pack<T> for i32 {
     }
 }
 
-impl<T: Read> Unpack<T> for String {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        decode_sized(reader)
+impl Unpack for String {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
+        let len = read_string_size(marker, reader)?;
+        let mut result = String::new();
+        reader.take(len as u64).read_to_string(&mut result)?;
+        Ok(result)
     }
 }
 
-impl <T: Write> Pack<T> for String {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
-        encode_sized(self, writer)
+impl Pack for String {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        let len = Length::from_usize(self.len()).expect("String has invalid length");
+        let mut written =
+            match len {
+                Length::Tiny(t) => Marker::TinyString(t as usize).encode(writer)?,
+                Length::Bit8(_) => Marker::String8.encode(writer)?,
+                Length::Bit16(_) => Marker::String16.encode(writer)?,
+                Length::Bit32(_) => Marker::String32.encode(writer)?,
+            };
+        written += len.encode(writer)?;
+        written += writer.write(self.as_bytes())?;
+
+        Ok(written)
     }
 }
 
-impl<T: Write, P: Pack<T>> Pack<T> for Vec<P> {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
-        encode_sized(self, writer)
+impl<P: Pack> Pack for Vec<P> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        let len = Length::from_usize(self.len()).expect("Vec has invalid size");
+        let mut written = len.encode_as_list_size(writer)?;
+        written += write_body_by_iter(&mut self.iter(), writer)?;
+        Ok(written)
     }
 }
 
-impl<T: Read, P: Unpack<T>> Unpack<T> for Vec<P> {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        decode_sized(reader)
+impl<P: Unpack> Unpack for Vec<P> {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
+        let len = read_list_size(marker, reader)?;
+        let mut result = Vec::with_capacity(len);
+        for _ in 0..len {
+            let p = P::decode(reader)?;
+            result.push(p);
+        }
+
+        Ok(result)
     }
 }
 
 
-impl<T: Read, P: Unpack<T>> Unpack<T> for HashMap<String, P> {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        decode_sized(reader)
+impl<P: Unpack> Unpack for HashMap<String, P> {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
+        let len = read_dict_size(marker, reader)?;
+        let mut result = HashMap::with_capacity(len);
+        for _ in 0..len {
+            let key = String::decode(reader)?;
+            let val = P::decode(reader)?;
+            result.insert(key, val);
+        }
+
+        Ok(result)
     }
 }
 
-impl<T: Write, P: Pack<T>> Pack<T> for HashMap<String, P> {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
-        encode_sized(self, writer)
+impl<P: Pack> Pack for HashMap<String, P> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        let len = Length::from_usize(self.len()).expect("HashMap has invalid length");
+        let mut written = len.encode_as_dict_size(writer)?;
+
+        for (key, val) in self {
+            written +=
+                key.encode(writer)?
+                    + val.encode(writer)?;
+        }
+
+        Ok(written)
     }
 }
 
-impl<T: Read, P: PackableStructSum> Unpack<T> for Dictionary<P> {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        decode_sized(reader)
+impl<P: Unpack> Unpack for Dictionary<P> {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
+        let inner =
+            <HashMap<String, Value<P>>>::decode_body(marker, reader)?;
+        Ok(Dictionary::from_inner(inner))
     }
 }
 
-impl<T: Write, P: PackableStructSum> Pack<T> for Dictionary<P> {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
-        encode_sized(self, writer)
+impl<P: Pack> Pack for Dictionary<P> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        self.inner().encode(writer)
     }
 }
 
-impl<T: Read, P: Unpack<T> + Hash + Eq> Unpack<T> for HashSet<P> {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> { decode_sized(reader) }
-}
+impl<P: Unpack + Hash + Eq> Unpack for HashSet<P> {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
+        let len = read_list_size(marker, reader)?;
+        let mut result = HashSet::with_capacity(len);
+        for _ in 0..len {
+            let p = P::decode(reader)?;
+            result.insert(p);
+        }
 
-impl<T: Write, P: Pack<T>> Pack<T> for HashSet<P> {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> { encode_sized(self, writer) }
-}
-
-impl<T: Read> Unpack<T> for Bytes {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        decode_sized(reader)
+        Ok(result)
     }
 }
 
-impl<T: Write> Pack<T> for Bytes {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
-        encode_sized(self, writer)
+impl<P: Pack> Pack for HashSet<P> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        let len = Length::from_usize(self.len()).expect("HashSet has invalid length");
+        let mut written = len.encode_as_list_size(writer)?;
+        written += write_body_by_iter(&mut self.iter(), writer)?;
+
+        Ok(written)
     }
 }
 
-impl<T: Read> Unpack<T> for f64 {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        let marker = Marker::decode(reader)?;
+impl Unpack for Bytes {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
+        let len = match marker {
+            Marker::Bytes8 => read_size_8(reader)?,
+            Marker::Bytes16 => read_size_16(reader)?,
+            Marker::Bytes32 => read_size_32(reader)?,
+            _ => Err(DecodeError::UnexpectedMarker(marker))?,
+        };
+        let mut res = vec![0; len];
+        reader.read_exact(&mut res)?;
+        Ok(Bytes(res))
+    }
+}
+
+impl Pack for Bytes {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        let len = Length::from_usize(self.0.len()).expect("Bytes has invalid size");
+        let mut written = match len {
+            Length::Tiny(u) =>
+                Marker::Bytes8.encode(writer)? + Length::Bit8(u).encode(writer)?,
+            Length::Bit8(_) =>
+                Marker::Bytes8.encode(writer)? + len.encode(writer)?,
+            Length::Bit16(_) =>
+                Marker::Bytes16.encode(writer)? + len.encode(writer)?,
+            Length::Bit32(_) =>
+                Marker::Bytes32.encode(writer)? + len.encode(writer)?,
+        };
+
+        written += writer.write(self.0.as_slice())?;
+        Ok(written)
+    }
+}
+
+impl Unpack for f64 {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
         if marker == Marker::Float64 {
-            Ok(reader.read_f64::<BigEndian>()?)
+            Ok(decode_body_f64(reader)?)
         } else {
             Err(DecodeError::UnexpectedMarker(marker))
         }
     }
 }
 
-impl<T: Write> Pack<T> for f64 {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
-        Marker::Float64.encode(writer)?;
-        writer.write_f64::<BigEndian>(*self)?;
-        Ok(9)
+impl Pack for f64 {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        Ok(encode_f64(*self, writer)?)
     }
 }
 
-impl<T: Write> Pack<T> for f32 {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
-        Marker::Float64.encode(writer)?;
-        writer.write_f64::<BigEndian>(*self as f64)?;
-        Ok(5)
+impl Pack for f32 {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
+        (*self as f64).encode(writer)
     }
 }
 
-impl<T: Read> Unpack<T> for bool {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        let marker = Marker::decode(reader)?;
+impl Unpack for bool {
+    fn decode_body<T: Read>(marker: Marker, _: &mut T) -> Result<Self, DecodeError> {
         match marker {
             Marker::True => Ok(true),
             Marker::False => Ok(false),
@@ -268,8 +342,8 @@ impl<T: Read> Unpack<T> for bool {
     }
 }
 
-impl<T: Write> Pack<T> for bool {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
+impl Pack for bool {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
         if *self {
             Marker::True.encode(writer)?;
             Ok(1)
@@ -280,8 +354,8 @@ impl<T: Write> Pack<T> for bool {
     }
 }
 
-impl<T: Write, P: Pack<T>> Pack<T> for Option<P> {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
+impl<P: Pack> Pack for Option<P> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
         if let Some(p) = self {
             P::encode(p, writer)
         } else {
@@ -291,65 +365,61 @@ impl<T: Write, P: Pack<T>> Pack<T> for Option<P> {
     }
 }
 
-impl<T: Read + Seek, P: Unpack<T>> Unpack<T> for Option<P> {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        let marker = Marker::decode(reader)?;
+impl<P: Unpack> Unpack for Option<P> {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
         match marker {
             Marker::Null => Ok(None),
             _ => {
-                reader.seek(SeekFrom::Current(-1))?;
-                P::decode(reader).map(Some)
+                P::decode_body(marker, reader).map(Some)
             }
         }
     }
 }
 
-impl<T: Read, S: PackableStructSum> Unpack<T> for Value<S> {
-    fn decode(reader: &mut T) -> Result<Self, DecodeError> {
-        let marker = Marker::decode(reader)?;
+impl<S: Unpack> Unpack for Value<S> {
+    fn decode_body<T: Read>(marker: Marker, reader: &mut T) -> Result<Self, DecodeError> {
         match marker {
             Marker::Null => Ok(Value::Null),
             Marker::True => Ok(Value::Boolean(true)),
             Marker::False => Ok(Value::Boolean(false)),
 
-            Marker::Float64 => Ok(reader.read_f64::<BigEndian>().map(Value::Float)?),
+            Marker::Float64 => Ok(Value::Float(f64::decode_body(marker, reader)?)),
 
-            Marker::PlusTinyInt(value) => Ok(Value::Integer(value as i64)),
-            Marker::MinusTinyInt(value) => Ok(Value::Integer(byte_to_minus_tiny_int(value) as i64)),
-            Marker::Int8 => Ok(reader.read_i8()? as i64).map(Value::Integer),
-            Marker::Int16 => Ok(reader.read_i16::<BigEndian>()? as i64).map(Value::Integer),
-            Marker::Int32 => Ok(reader.read_i32::<BigEndian>()? as i64).map(Value::Integer),
-            Marker::Int64 => Ok(reader.read_i64::<BigEndian>()?).map(Value::Integer),
+            Marker::PlusTinyInt(_) |
+            Marker::MinusTinyInt(_) |
+            Marker::Int8 |
+            Marker::Int16 |
+            Marker::Int32 |
+            Marker::Int64 => Ok(Value::Integer(i64::decode_body(marker, reader)?)),
 
-            Marker::TinyString(size) => String::read_body(size, reader).map(Value::String),
-            Marker::String8 => read_size_8(reader).and_then(|i| String::read_body(i, reader)).map(Value::String),
-            Marker::String16 => read_size_16(reader).and_then(|i| String::read_body(i as usize, reader)).map(Value::String),
-            Marker::String32 => read_size_32(reader).and_then(|i| String::read_body(i as usize, reader)).map(Value::String),
+            Marker::TinyString(_) |
+            Marker::String8 |
+            Marker::String16 |
+            Marker::String32 => Ok(Value::String(String::decode_body(marker, reader)?)),
 
-            Marker::TinyList(size) => <Vec<Value<S>>>::read_body(size, reader).map(Value::List),
-            Marker::List8 => read_size_8(reader).and_then(|i| <Vec<Value<S>>>::read_body(i, reader)).map(Value::List),
-            Marker::List16 => read_size_16(reader).and_then(|i| <Vec<Value<S>>>::read_body(i as usize, reader)).map(Value::List),
-            Marker::List32 => read_size_32(reader).and_then(|i| <Vec<Value<S>>>::read_body(i as usize, reader)).map(Value::List),
+            Marker::TinyList(_) |
+            Marker::List8 |
+            Marker::List16 |
+            Marker::List32 => Ok(Value::List(Vec::decode_body(marker, reader)?)),
 
-            Marker::TinyDictionary(size) => <Dictionary<S>>::read_body(size, reader).map(Value::Dictionary),
-            Marker::Dictionary8 => read_size_8(reader).and_then(|i| <Dictionary<S>>::read_body(i, reader)).map(Value::Dictionary),
-            Marker::Dictionary16 => read_size_16(reader).and_then(|i| <Dictionary<S>>::read_body(i as usize, reader)).map(Value::Dictionary),
-            Marker::Dictionary32 => read_size_32(reader).and_then(|i| <Dictionary<S>>::read_body(i as usize, reader)).map(Value::Dictionary),
+            Marker::TinyDictionary(_) |
+            Marker::Dictionary8 |
+            Marker::Dictionary16 |
+            Marker::Dictionary32 => Ok(Value::Dictionary(Dictionary::decode_body(marker, reader)?)),
 
-            Marker::Bytes8 => read_size_8(reader).and_then(|i| <Bytes>::read_body(i, reader)).map(Value::Bytes),
-            Marker::Bytes16 => read_size_16(reader).and_then(|i| <Bytes>::read_body(i as usize, reader)).map(Value::Bytes),
-            Marker::Bytes32 => read_size_32(reader).and_then(|i| <Bytes>::read_body(i as usize, reader)).map(Value::Bytes),
+            Marker::Bytes8 |
+            Marker::Bytes16 |
+            Marker::Bytes32 => Ok(Value::Bytes(Bytes::decode_body(marker, reader)?)),
 
-            Marker::Structure(u) => {
-                let tag_byte = reader.read_u8()?;
-                S::read_struct_body(u, tag_byte, reader).map(Value::Structure)
+            Marker::Structure(_, _) => {
+                Ok(Value::Structure(S::decode_body(marker, reader)?))
             }
         }
     }
 }
 
-impl<T: Write, S: PackableStructSum> Pack<T> for Value<S> {
-    fn encode(&self, writer: &mut T) -> Result<usize, EncodeError> {
+impl<S: Pack> Pack for Value<S> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, EncodeError> {
         match self {
             Value::Null => Ok(Marker::Null.encode(writer)?),
             Value::Boolean(b) => bool::encode(b, writer),
@@ -360,29 +430,28 @@ impl<T: Write, S: PackableStructSum> Pack<T> for Value<S> {
             Value::Dictionary(d) => <Dictionary<S>>::encode(d, writer),
             Value::List(l) => <Vec<Value<S>>>::encode(l, writer),
             Value::Structure(s) => {
-                Marker::Structure(s.fields_len()).encode(writer)?;
-                writer.write_u8(s.tag_byte())?;
-                Ok(2 + s.write_struct_body(writer)?)
-            },
+                s.encode(writer)
+            }
         }
     }
 }
 
 #[cfg(test)]
 pub mod test {
-    use crate::packable::{Pack, Unpack};
-    use std::fmt::Debug;
-    use std::io::{Cursor};
-    use crate::ll::marker::{MarkerHighNibble};
     use std::collections::HashMap;
-    use crate::value::{Value};
-    use crate::structure::struct_sum::NoStruct;
+    use std::fmt::Debug;
+    use std::io::Cursor;
 
-    pub fn unpack_pack_test<'a, T: Unpack<&'a [u8]> + Pack<Vec<u8>>>(mut buffer: &'a [u8]) {
+    use crate::ll::marker::MarkerHighNibble;
+    use crate::packable::{Pack, Unpack};
+    use crate::structure::NoStruct;
+    use crate::value::Value;
+
+    pub fn unpack_pack_test<T: Unpack + Pack>(mut buffer: &[u8]) {
         let compare = Vec::from(buffer);
         let res = T::decode(&mut buffer).unwrap();
 
-        let mut res_buffer = Vec::new();
+        let mut res_buffer : Vec<u8> = Vec::new();
         res.encode(&mut res_buffer).unwrap();
 
         assert_eq!(compare,
@@ -392,7 +461,7 @@ pub mod test {
                    res_buffer);
     }
 
-    pub fn pack_unpack_test<T: Pack<Vec<u8>> + Unpack<Cursor<Vec<u8>>> + PartialEq + Debug>(values: &[T]) {
+    pub fn pack_unpack_test<T: Pack + Unpack + PartialEq + Debug>(values: &[T]) {
         for value in values {
             let mut buffer: Vec<u8> = Vec::new();
             value
@@ -400,7 +469,7 @@ pub mod test {
                 .expect(&format!("cannot encode '{:?}'", value));
 
 
-            let mut cursor = Cursor::new(buffer);
+            let mut cursor = Cursor::new(buffer.clone());
             let res =
                 T::decode(&mut cursor)
                     .expect(&format!("cannot decode back to '{:?}'", value));
@@ -411,8 +480,8 @@ pub mod test {
         }
     }
 
-    pub fn pack_to_test<T: Pack<Vec<u8>> + Debug>(value: T, bytes: &[u8]) {
-        let mut encoded = Vec::new();
+    pub fn pack_to_test<T: Pack + Debug>(value: T, bytes: &[u8]) {
+        let mut encoded : Vec<u8> = Vec::new();
         let used_bits = value.encode(&mut encoded).unwrap();
 
         assert_eq!(used_bits,
@@ -425,10 +494,10 @@ pub mod test {
                    value, encoded, bytes);
     }
 
-    pub fn unpack_to_test<'a, T: Unpack<Cursor<&'a [u8]>> + Debug + PartialEq>(bytes: &'a [u8], value: T) {
+    pub fn unpack_to_test<T: Unpack + Debug + PartialEq>(bytes: &[u8], value: T) {
         assert!(bytes.len() > 0, "Input bytes cannot be empty.");
 
-        let mut cursor = Cursor::new(bytes);
+        let mut cursor : Cursor<&[u8]> = Cursor::new(bytes);
         let res = T::decode(&mut cursor).unwrap();
 
         assert_eq!(cursor.position(),
@@ -501,17 +570,17 @@ pub mod test {
 
     #[test]
     fn pack_unpack_strings() {
-        let strs : Vec<String> =
+        let strings: Vec<String> =
             vec!("hello world",
                  "JErl .aA_E Ae1-233k 12ä##",
                  "",
                  "ß++°",
-            "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.")
+                 "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.")
                 .into_iter()
                 .map(|s| String::from(s))
                 .collect();
 
-        pack_unpack_test(&strs);
+        pack_unpack_test(&strings);
     }
 
     #[test]
@@ -607,7 +676,7 @@ pub mod test {
                 42.into(), "hello".into()
             ]
         );*/
-        let value : Value<NoStruct> = Value::Boolean(true);
+        let value: Value<NoStruct> = Value::Boolean(true);
 
         let mut buffer: Vec<u8> = Vec::new();
         value.encode(&mut buffer).unwrap();

@@ -1,7 +1,7 @@
 use crate::*;
 use crate::std_structs::{StdStructPrimitive};
 
-#[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
 #[tag = 0x52]
 pub struct Relationship {
     pub id: i64,

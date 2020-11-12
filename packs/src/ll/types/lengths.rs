@@ -1,22 +1,36 @@
 use std::io::{Read, Write};
 use crate::error::{DecodeError, EncodeError};
-use byteorder::{ReadBytesExt, BigEndian, WriteBytesExt};
 use std::convert::TryFrom;
 use crate::ll::marker::Marker;
+use crate::ll::types::fixed::decode_body_i32;
 
 pub fn read_size_8<T: Read>(reader: &mut T) -> Result<usize, DecodeError> {
-    let u = reader.read_u8()?;
-    TryFrom::try_from(u).or(Err(DecodeError::CannotReadSizeInfo))
+    let mut buf = [0; 1];
+    reader.read_exact(&mut buf)?;
+    TryFrom::try_from(buf[0]).or(Err(DecodeError::CannotReadSizeInfo))
+}
+
+pub fn write_size_8<T: Write>(size: u8, writer: &mut T) -> Result<usize, EncodeError> {
+    Ok(writer.write(&size.to_be_bytes())?)
 }
 
 pub fn read_size_16<T: Read>(reader: &mut T) -> Result<usize, DecodeError> {
-    let u = reader.read_u16::<BigEndian>()?;
-    TryFrom::try_from(u).or(Err(DecodeError::CannotReadSizeInfo))
+    let mut buf = [0; 2];
+    reader.read_exact(&mut buf)?;
+    TryFrom::try_from(u16::from_be_bytes(buf)).or(Err(DecodeError::CannotReadSizeInfo))
+}
+
+pub fn write_size_16<T: Write>(size: u16, writer: &mut T) -> Result<usize, EncodeError> {
+    Ok(writer.write(&size.to_be_bytes())?)
 }
 
 pub fn read_size_32<T: Read>(reader: &mut T) -> Result<usize, DecodeError> {
-    let u = reader.read_i32::<BigEndian>()?;
+    let u = decode_body_i32(reader)?;
     TryFrom::try_from(u).or(Err(DecodeError::CannotReadSizeInfo))
+}
+
+pub fn write_size_32<T: Write>(size: i32, writer: &mut T) -> Result<usize, EncodeError> {
+    Ok(writer.write(&size.to_be_bytes())?)
 }
 
 /// Reads the size of a PackStream `Dictionary` as denoted by the marker. Reports `UnexpectedMarker`
@@ -118,20 +132,61 @@ impl Length {
         }
     }
 
-    pub fn encode<T: Write>(self, mut writer: T) -> Result<usize, EncodeError> {
+    pub fn encode<T: Write>(self, writer: &mut T) -> Result<usize, EncodeError> {
         match self {
             Length::Tiny(_) => Ok(0),
             Length::Bit8(size) => {
-                writer.write_u8(size)?;
-                Ok(1)
+                write_size_8(size, writer)
             },
             Length::Bit16(size) => {
-                writer.write_u16::<BigEndian>(size)?;
-                Ok(2)
+                write_size_16(size, writer)
             },
             Length::Bit32(size) => {
-                writer.write_i32::<BigEndian>(size)?;
-                Ok(4)
+                write_size_32(size, writer)
+            }
+        }
+    }
+
+    /// Parses the `Length` and encodes it as marker and size information.
+    pub fn encode_as_list_size<T: Write>(self, writer: &mut T) -> Result<usize, EncodeError> {
+        match self {
+            Length::Tiny(u) => {
+                Marker::TinyList(u as usize).encode(writer)?;
+                Ok(1)
+            },
+            Length::Bit8(u) => {
+                Marker::List8.encode(writer)?;
+                writer.write(&[u])?;
+                Ok(2)
+            },
+            Length::Bit16(u) => {
+                Ok(
+                    Marker::List16.encode(writer)?
+                        + write_size_16(u, writer)?)
+            },
+            Length::Bit32(i) => {
+                Ok(
+                    Marker::List32.encode(writer)? +
+                        write_size_32(i, writer)?)
+            }
+        }
+    }
+
+    pub fn encode_as_dict_size<T: Write>(self, writer: &mut T) -> Result<usize, EncodeError> {
+        match self {
+            Length::Tiny(u) => {
+                Ok(Marker::TinyDictionary(u as usize).encode(writer)?)
+            },
+            Length::Bit8(u) => {
+                Ok(Marker::Dictionary8.encode(writer)? + writer.write(&[u])?)
+            },
+            Length::Bit16(u) => {
+                Ok(Marker::Dictionary16.encode(writer)?
+                    + write_size_16(u, writer)?)
+            },
+            Length::Bit32(i) => {
+                Marker::Dictionary32.encode(writer)?;
+                Ok(1 + write_size_32(i, writer)?)
             }
         }
     }

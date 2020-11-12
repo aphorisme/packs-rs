@@ -27,7 +27,7 @@ pub mod duration;
 pub mod point2d;
 pub mod point3d;
 
-#[derive(Debug, Clone, PartialEq, PackableStructSum, Pack, Unpack)]
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
 pub enum StdStruct {
     #[tag = 0x4E]
     Node(Node),
@@ -57,7 +57,7 @@ pub enum StdStruct {
     Point3D(Point3D),
 }
 
-#[derive(Debug, Clone, PartialEq, PackableStructSum, Pack, Unpack)]
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
 /// A variant of `StdStruct` which has only the non-recursive types. This allows `StdStruct` to become
 /// `Send`, since [`Node`](crate::std_structs::node) can use `StdStructPrimitive` and hence is no longer
 /// recursive.
