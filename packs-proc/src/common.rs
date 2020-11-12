@@ -1,6 +1,5 @@
 use syn::{Attribute, Variant, Type};
-use proc_macro2::{Span, TokenStream};
-use quote::quote;
+use proc_macro2::{Span};
 
 pub mod enums;
 
@@ -16,14 +15,25 @@ pub fn get_singleton_field_type(v: &Variant) -> &Type {
     }
 }
 
-pub fn gen_packable_struct_sum_constraint(generics: &syn::Generics) -> TokenStream {
+/*
+pub fn add_pack_to_first_type(generics: &syn::Generics) -> TokenStream {
     if let Some(ty_param) = generics.type_params().next() {
         let ident = &ty_param.ident;
-        quote! { #ident: PackableStructSum }
+        quote! { #ident: Pack }
     } else {
         TokenStream::new()
     }
 }
+
+pub fn add_unpack_to_first_type(generics: &syn::Generics) -> TokenStream {
+    if let Some(ty_param) = generics.type_params().next() {
+        let ident = &ty_param.ident;
+        quote! { #ident: Unpack }
+    } else {
+        TokenStream::new()
+    }
+}
+*/
 
 pub fn get_tag_attr(attributes: &Vec<Attribute>) -> Option<u8> {
     for attr in attributes {

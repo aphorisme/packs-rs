@@ -17,12 +17,12 @@ A [PackStream](https://7687.org/packstream/packstream-specification-1.html) impl
 
 ⚠️ This package has yet to proof to be largely bug free.
 
-⚠️ Be aware that this package is part of a bigger project which might
+⚠️ Be aware this package is part of a bigger project which might
 dictate another architecture and hence imply *heavy changes*.
 
 It will stay open source nevertheless and will continue to follow its
 philosophy, by providing a PackStream implementation which is decoupled
-from bolt and neo4j as well as from the standard structs (e.g. `Node`).
+from the bolt protocol and neo4j as well as from the standard structs (e.g. `Node`).
 
 This package is used as the PackStream implementation for the bolt driver 
 [`raio-rs`](https://github.com/aphorisme/raio-rs).
@@ -32,7 +32,7 @@ PackStream is a streamable binary format for a range of data types,
 used by the [bolt protocol](https://7687.org/#bolt) – the protocol of
 the graph database neo4j. 
 
-But the protocol can be used for any byte wise packing; it is
+The protocol can be used for any byte wise packing; it is
 especially suitable for streams. This library keeps this open and is
 not tied to bolt nor neo4j specific implementation details.
 
@@ -49,14 +49,14 @@ Currently, the following primitive types are supported:
 | list | `Vec<T>` |
 | dictionary | `HashMap<String, T>` |
 | byte array | *wrapped* `Vec<u8>` |
-| null | *encode only*: `Option<T>` |
+| null | `Option<T>` |
 
-all of them are also part of a light typed variant `Value` which 
+All of them are also part of a light typed variant `Value` which 
 allows for decoding of a value which type is unknown. 
 
 ### Structs
 
-Besides these primitive types, PackStream supports structs with
+Besides, these primitive types, PackStream supports structs with
 up to 15 fields.
 
 Although the specification defines some structs already (e.g. `DateTime`
@@ -64,9 +64,8 @@ and `Node`) this library has these structs as opt-out. One can either
 use the standard structs as they are specified in the official specification,
 extend them, completely ignore them, or provide one's own. 
 
-The library also provides a derive macro to derive the encoding and decoding
-traits (`Pack` and `Unpack`) for structs, as well as a macro to define
-a sum type to extend `Value`.
+The library also provides a derive-macro to derive the encoding and decoding
+traits (`Pack` and `Unpack`) for structs and enums.
 
 Those different options can be controlled through feature flags.
 
@@ -88,5 +87,5 @@ documentation and heavier test. I try to keep any open tasks as
 issues in github for you to pick.
 
 I'm not into changing architecture for now, as this library will be used 
-in a bigger project and I first have to see how it fits in; I'm open
+in a bigger project. I first have to see how it fits in; I'm open
 for suggestions though.
