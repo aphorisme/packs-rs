@@ -25,7 +25,7 @@ impl Tags {
     }
 
     /// Adds a tag from attributes. Panics, if none is present.
-    pub fn add_from_attr(&mut self, attrs: &Vec<Attribute>) {
+    pub fn add_from_attr(&mut self, attrs: &[Attribute]) {
         if let Some(t) = get_tag_attr(attrs) {
             self.add_tag(t)
         } else {

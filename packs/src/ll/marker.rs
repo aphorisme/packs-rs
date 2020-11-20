@@ -225,15 +225,6 @@ impl Display for Marker {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum MarkerSizeInfo {
-    Tiny,
-    Bit8,
-    Bit16,
-    Bit32,
-    None,
-}
-
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MarkerHighNibble {

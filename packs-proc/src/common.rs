@@ -1,5 +1,5 @@
-use syn::{Attribute, Variant, Type};
-use proc_macro2::{Span};
+use proc_macro2::Span;
+use syn::{Attribute, Type, Variant};
 
 pub mod enums;
 
@@ -15,39 +15,44 @@ pub fn get_singleton_field_type(v: &Variant) -> &Type {
     }
 }
 
-/*
-pub fn add_pack_to_first_type(generics: &syn::Generics) -> TokenStream {
-    if let Some(ty_param) = generics.type_params().next() {
-        let ident = &ty_param.ident;
-        quote! { #ident: Pack }
-    } else {
-        TokenStream::new()
-    }
+pub fn get_tag_attr(attributes: &[Attribute]) -> Option<u8> {
+    get_name_value_attr("tag", attributes).map(lit_to_u8)
 }
 
-pub fn add_unpack_to_first_type(generics: &syn::Generics) -> TokenStream {
-    if let Some(ty_param) = generics.type_params().next() {
-        let ident = &ty_param.ident;
-        quote! { #ident: Unpack }
-    } else {
-        TokenStream::new()
-    }
+pub fn get_fields_attr(attributes: &[Attribute]) -> Option<usize> {
+    get_name_value_attr("fields", attributes).map(lit_to_usize)
 }
-*/
 
-pub fn get_tag_attr(attributes: &Vec<Attribute>) -> Option<u8> {
+pub fn get_pack_attr_param(attributes: &[Attribute]) -> Option<syn::Ident> {
+    let attr = get_attr("pack", attributes)?;
+    attr.parse_args().ok()
+}
+
+pub fn get_unpack_attr_param(attributes: &[Attribute]) -> Option<syn::Ident> {
+    let attr = get_attr("unpack", attributes)?;
+    attr.parse_args().ok()
+}
+
+pub fn get_attr<'a>(attr_name: &str, attributes: &'a [Attribute]) -> Option<&'a Attribute> {
     for attr in attributes {
-        let meta = attr.parse_meta().unwrap();
-        match meta {
-            syn::Meta::NameValue(nv) => {
-                if let Some(ident) = nv.path.get_ident() {
-                    if ident == "tag" {
-                        return Some(lit_to_u8(nv.lit));
-                    }
-                }
-            },
+        if let Some(ident) = attr.path.get_ident() {
+            if ident == attr_name {
+                return Some(attr)
+            }
+        }
+    }
 
-            _ => ()
+    None
+}
+
+pub fn get_name_value_attr(attr_name: &str, attributes: &[Attribute]) -> Option<syn::Lit> {
+    for attr in attributes {
+        if let syn::Meta::NameValue(nv) = attr.parse_meta().unwrap() {
+            if let Some(ident) = nv.path.get_ident() {
+                if ident == attr_name {
+                    return Some(nv.lit)
+                }
+            }
         }
     }
 
@@ -58,10 +63,19 @@ fn lit_to_u8(lit: syn::Lit) -> u8 {
     match lit {
         syn::Lit::Int(li) => {
             li.base10_parse().unwrap()
-        },
+        }
         syn::Lit::Byte(lb) => {
             lb.value()
-        },
+        }
         _ => panic!("Cannot parse into u8")
+    }
+}
+
+fn lit_to_usize(lit: syn::Lit) -> usize {
+    match lit {
+        syn::Lit::Int(li) => {
+            li.base10_parse().unwrap()
+        },
+        _ => panic!("Cannot parse into usize")
     }
 }

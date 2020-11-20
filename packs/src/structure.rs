@@ -15,9 +15,7 @@ use std::io::{Read, Write};
 /// Encoding and Decoding is given by the generic [`Pack`](crate::packable::Pack) and [`Unpack`](crate::packable::Unpack)
 /// implementation for `Value<S>`.
 /// ```
-/// # use packs::structure::GenericStruct;
-/// # use packs::value::Value;
-/// # use packs::packable::{Pack, Unpack};
+/// # use packs::{Value, GenericStruct, Pack, Unpack};
 /// let s = GenericStruct {
 ///         tag_byte: 0x01,
 ///         fields: vec!(Value::Float(42.0), Value::String(String::from("hello world"))),

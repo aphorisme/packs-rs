@@ -27,8 +27,10 @@ standard structs.
 can be extracted to, as well as its variants `Extract` and `ExtractMut`.
 - Added `extract_list` variants to extract a `Value::List` into a
 homogenous list if possible.
-- Added an `Unpack<T>` implementation for `Option<V: Unpack<T>>`.
+- Added an `Unpack` implementation for `Option<V: Unpack>`.
 - Added support for `enum` types in the derive-macros of `Pack` and `Unpack`.
 The macro considers these types as "Struct Sums".
-- Allowed the deriving of `Pack` and `Unpack` for `struct` not only as a 
-Structure but as a flat Dictionary as well, using the `#[dict]` attribute.
+- While deriving `Pack`, fields of a `struct` can use a custom encoding/decoding function which
+differs from `<F as Pack>::encode` by stating `#[pack(encode_function)]`/`#[unpack(decode_function)]`.
+- The number of fields which a single field occupies in `Pack` and `Unpack` while deriving
+can be set using `#[fields = usize]`.

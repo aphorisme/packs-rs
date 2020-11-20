@@ -1,12 +1,13 @@
 use proc_macro::TokenStream;
-use syn;
-use crate::pack_unpack::{impl_pack_sum, impl_pack_struct, impl_unpack_sum, impl_unpack_struct};
 use syn::DeriveInput;
+use pack::{impl_pack_sum, impl_pack_struct};
+use unpack::{impl_unpack_sum, impl_unpack_struct};
 
-mod pack_unpack;
+mod pack;
+mod unpack;
 mod common;
 
-#[proc_macro_derive(Pack, attributes(tag))]
+#[proc_macro_derive(Pack, attributes(tag, pack, fields))]
 pub fn pack_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
 
@@ -20,7 +21,7 @@ pub fn pack_derive(input: TokenStream) -> TokenStream {
     t.into()
 }
 
-#[proc_macro_derive(Unpack, attributes(tag))]
+#[proc_macro_derive(Unpack, attributes(tag, unpack, fields))]
 pub fn unpack_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
 

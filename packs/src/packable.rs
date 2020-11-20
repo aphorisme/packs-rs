@@ -11,7 +11,7 @@
 //! that `decode : Bytes -> Value` is not injective; different byte sequences can be decoded into
 //! the same value:
 //! ```
-//! use packs::packable::{Pack, Unpack};
+//! use packs::{Pack, Unpack};
 //! let mut bytes_i16 : &[u8] = &[0xC9, 0xFF, 0xFF]; // -1 as Int16
 //! let mut bytes_i8 : &[u8] = &[0xC8, 0xFF]; // -1 as Int8
 //!
@@ -22,7 +22,7 @@
 //! ```
 //! This especially means that `encode` and `decode` do **not** need to be inverses:
 //! ```
-//! use packs::packable::{Pack, Unpack};
+//! use packs::{Pack, Unpack};
 //! let mut bytes : &[u8] = &[0xC9, 0x00, 0x01]; // 1 as Int16
 //! let decoded = i64::decode(&mut bytes).unwrap();
 //!
@@ -35,7 +35,7 @@
 //! If the base value can only be encoded in a unique manner, then `encode` and `decode`
 //! are inverses:
 //! ```
-//! use packs::packable::{Pack, Unpack};
+//! use packs::{Pack, Unpack};
 //! let mut buffer = Vec::new();
 //! let value: i64 = 42334388282948;
 //!
@@ -46,7 +46,7 @@
 //! ```
 //! as well as in the other direction:
 //! ```
-//! use packs::packable::{Pack, Unpack};
+//! use packs::{Pack, Unpack};
 //! use std::io::Cursor;
 //! let buffer: &[u8] = &[0xC9, 0x7F, 0x0C];
 //! let mut cursor = Cursor::new(buffer);

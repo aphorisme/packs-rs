@@ -1,6 +1,6 @@
 [package]
 name = "packs"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Philipp Pfeiffer <pfiff@posteo.de>"]
 edition = "2018"
 license-file = "LICENSE"
@@ -11,9 +11,12 @@ keywords = ["bolt", "packing", "serialization", "packstream", "neo4j"]
 
 [dependencies]
 thiserror = "^1.0.20"
-packs-proc = { path = "../packs-proc", version = "0.1.0", optional = true }
+packs-proc = { path = "../packs-proc", version = "0.2.0", optional = true }
 
 [features]
 default = ["std_structs"]
 std_structs = ["derive"]
 derive = ["packs-proc"]
+
+[dev-dependencies]
+packs-proc = { path = "../packs-proc", version = "0.2.0", optional = false }

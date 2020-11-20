@@ -261,8 +261,7 @@ impl<T, E: Extract<T>> Extract<T> for Option<E> {
 
 /// Extracts a `Value::List` with the same runtime type values into a vector of extracted values.
 /// ```
-/// # use packs::{NoStruct, Value};
-/// # use packs::value::extract_list_ref;
+/// # use packs::{NoStruct, Value, extract_list_ref};
 /// let value : Value<NoStruct> = vec!(42, -1, 3332).into_iter().collect();
 ///
 /// let ints = extract_list_ref::<NoStruct, i64>(&value);
@@ -271,8 +270,7 @@ impl<T, E: Extract<T>> Extract<T> for Option<E> {
 /// Does return `None` whenever either the provided `value` is not a `List` or any of the items of
 /// the list cannot be extracted to `T`.
 /// ```
-/// # use packs::{Value, NoStruct};
-/// # use packs::value::extract_list_ref;
+/// # use packs::{Value, NoStruct, extract_list_ref};
 /// let value : Value<NoStruct> =
 ///     vec!(
 ///         Value::Integer(42),

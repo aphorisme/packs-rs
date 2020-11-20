@@ -146,10 +146,10 @@
 //!
 //! assert_eq!(Value::Structure(MyStruct::Person(person)), runtime_typed);
 //! ```
-pub mod value;
-pub mod structure;
-pub mod packable;
-pub mod error;
+mod value;
+mod structure;
+mod packable;
+mod error;
 pub mod ll;
 pub mod utils;
 
@@ -158,14 +158,6 @@ pub mod std_structs;
 
 #[cfg(feature = "derive")]
 pub use packs_proc::*;
-
-#[cfg(feature = "derive")]
-#[doc(hidden)]
-pub use std::io::Write;
-
-#[cfg(feature = "derive")]
-#[doc(hidden)]
-pub use std::io::Read;
 
 // Public API:
 pub use packable::{Pack, Unpack};
