@@ -1,10 +1,10 @@
-use std::io::{Write, Read};
-use std::io;
-use byteorder::{WriteBytesExt, ReadBytesExt};
-use crate::ll::bitops::{combine, high_nibble_equals, get_tiny_size};
 use std::fmt::{Display, Formatter};
-use crate::ll::bounds::{is_in_plus_tiny_int_bound};
+use std::io::{Read, Write};
+use std::io;
+
 use crate::error::DecodeError;
+use crate::ll::bitops::{combine, get_tiny_size, high_nibble_equals};
+use crate::ll::bounds::is_in_plus_tiny_int_bound;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 /// # Overview
@@ -18,7 +18,8 @@ use crate::error::DecodeError;
 /// carries the type information.
 /// ```
 /// use packs::ll::marker::{Marker, MarkerHighNibble};
-/// let m = Marker::from_u8(0x81).unwrap(); // TinyString of length 1.
+/// let mut buf : &[u8] = &[0x81];
+/// let m = Marker::decode(&mut buf).unwrap(); // TinyString of length 1.
 /// assert_eq!(MarkerHighNibble::TinyString, m.high_nibble());
 /// ```
 ///
@@ -32,7 +33,7 @@ pub enum Marker {
     TinyString(usize),
     TinyList(usize),
     TinyDictionary(usize),
-    Structure(usize),
+    Structure(usize, u8),
 
     // special:
     PlusTinyInt(u8),
@@ -97,31 +98,30 @@ impl Marker {
             Marker::Bytes8 => MarkerHighNibble::Bytes8,
             Marker::Bytes16 => MarkerHighNibble::Bytes16,
             Marker::Bytes32 => MarkerHighNibble::Bytes32,
-            Marker::Structure(_) => MarkerHighNibble::Structure,
+            Marker::Structure(_, _) => MarkerHighNibble::Structure,
         }
     }
 
     pub fn encode<T: Write>(self, into: &mut T) -> io::Result<usize> {
-        into.write_u8(self.into_u8())?;
-        Ok(1)
-    }
-
-    pub fn into_u8(self) -> u8 {
         use Marker::*;
         match self {
-            TinyString(size) => combine(MarkerHighNibble::TinyString as u8, size as u8),
-            TinyList(size) => combine(MarkerHighNibble::TinyList as u8, size as u8),
-            TinyDictionary(size) => combine(MarkerHighNibble::TinyDictionary as u8, size as u8),
-            Structure(size) => combine(MarkerHighNibble::Structure as u8, size as u8),
+            TinyString(size) =>
+                into.write(&[combine(MarkerHighNibble::TinyString as u8, size as u8)]),
+            TinyList(size) =>
+                into.write(&[combine(MarkerHighNibble::TinyList as u8, size as u8)]),
+            TinyDictionary(size) =>
+                into.write(&[combine(MarkerHighNibble::TinyDictionary as u8, size as u8)]),
+            Structure(size, tag) =>
+                into.write(&[combine(MarkerHighNibble::Structure as u8, size as u8), tag]),
 
-            PlusTinyInt(value) => value,
-            MinusTinyInt(value) => value,
+            PlusTinyInt(value) => into.write(&[value]),
+            MinusTinyInt(value) => into.write(&[value]),
 
-            p => p.high_nibble() as u8,
+            p => into.write(&[p.high_nibble() as u8]),
         }
     }
 
-    pub fn from_u8(from: u8) -> Option<Marker> {
+    /*pub fn from_u8(from: u8) -> Option<Marker> {
         if is_in_plus_tiny_int_bound(from as i64) {
             Some(Marker::PlusTinyInt(from))
         } else if MarkerHighNibble::MinusTinyInt.is_contained_in(from) {
@@ -165,40 +165,56 @@ impl Marker {
                 _ => None
             }
         }
-    }
+    }*/
 
     pub fn decode<T: Read>(reader: &mut T) -> Result<Marker, DecodeError> {
-        let marker_byte = reader.read_u8()?;
-        if let Some(marker) = Marker::from_u8(marker_byte) {
-            Ok(marker)
+        let mut buf = [0; 1];
+        reader.read_exact(&mut buf)?;
+        let from = buf[0];
+        if is_in_plus_tiny_int_bound(from as i64) {
+            Ok(Marker::PlusTinyInt(from))
+        } else if MarkerHighNibble::MinusTinyInt.is_contained_in(from) {
+            Ok(Marker::MinusTinyInt(from))
+        } else if MarkerHighNibble::TinyString.is_contained_in(from) {
+            Ok(Marker::TinyString(get_tiny_size(from)))
+        } else if MarkerHighNibble::TinyList.is_contained_in(from) {
+            Ok(Marker::TinyList(get_tiny_size(from)))
+        } else if MarkerHighNibble::TinyDictionary.is_contained_in(from) {
+            Ok(Marker::TinyDictionary(get_tiny_size(from)))
+        } else if MarkerHighNibble::Structure.is_contained_in(from) {
+            let mut buf = [0; 1];
+            reader.read_exact(&mut buf)?;
+            Ok(Marker::Structure(get_tiny_size(from), buf[0]))
         } else {
-            Err(DecodeError::UnknownMarkerByte(marker_byte))
-        }
-    }
+            match from {
+                0xC0 => Ok(Marker::Null),
+                0xC1 => Ok(Marker::Float64),
+                0xC2 => Ok(Marker::True),
+                0xC3 => Ok(Marker::False),
 
-    pub fn size_info(self) -> MarkerSizeInfo {
-        match self {
-            Marker::TinyString(_)
-            | Marker::TinyList(_)
-            | Marker::TinyDictionary(_)
-            | Marker::Structure(_) => MarkerSizeInfo::Tiny,
+                0xC8 => Ok(Marker::Int8),
+                0xC9 => Ok(Marker::Int16),
+                0xCA => Ok(Marker::Int32),
+                0xCB => Ok(Marker::Int64),
 
-            Marker::String8
-            | Marker::List8
-            | Marker::Dictionary8
-            | Marker::Bytes8 => MarkerSizeInfo::Bit8,
+                0xCC => Ok(Marker::Bytes8),
+                0xCD => Ok(Marker::Bytes16),
+                0xCE => Ok(Marker::Bytes32),
 
-            Marker::String16
-            | Marker::List16
-            | Marker::Dictionary16
-            | Marker::Bytes16 => MarkerSizeInfo::Bit16,
+                0xD0 => Ok(Marker::String8),
+                0xD1 => Ok(Marker::String16),
+                0xD2 => Ok(Marker::String32),
 
-            Marker::String32
-            | Marker::List32
-            | Marker::Dictionary32
-            | Marker::Bytes32 => MarkerSizeInfo::Bit32,
+                0xD4 => Ok(Marker::List8),
+                0xD5 => Ok(Marker::List16),
+                0xD6 => Ok(Marker::List32),
 
-            _ => MarkerSizeInfo::None,
+                0xD8 => Ok(Marker::Dictionary8),
+                0xD9 => Ok(Marker::Dictionary16),
+                0xDA => Ok(Marker::Dictionary32),
+
+                _ => Err(DecodeError::UnknownMarkerByte(from))
+            }
         }
     }
 }
@@ -207,15 +223,6 @@ impl Display for Marker {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum MarkerSizeInfo {
-    Tiny,
-    Bit8,
-    Bit16,
-    Bit32,
-    None,
 }
 
 #[repr(u8)]
@@ -272,15 +279,22 @@ impl MarkerHighNibble {
 pub mod test {
     use crate::ll::marker::Marker;
 
+    pub fn marker_from_bytes_test(marker: Marker, mut bytes: &[u8]) {
+        let m =
+            Marker::decode(&mut bytes)
+                .expect(&format!("Decoding error on bytes {:X?} trying to read out marker {:?}", bytes, marker));
+        assert_eq!(marker, m);
+    }
+
     #[test]
     fn from_u8_plus_tiny_int_marker() {
-        assert_eq!(Some(Marker::PlusTinyInt(0x0F)), Marker::from_u8(0x0F));
+        marker_from_bytes_test(Marker::PlusTinyInt(0x0F), &[0x0F]);
     }
 
     #[test]
     fn from_u8_minus_tiny_int_marker() {
         for i in 0u8..0x10 {
-            assert_eq!(Some(Marker::MinusTinyInt(0xF0 | i)), Marker::from_u8(0xF0 | i));
+            marker_from_bytes_test(Marker::MinusTinyInt(0xF0 | i), &[(0xF0 | i)]);
         }
     }
 
@@ -290,19 +304,17 @@ pub mod test {
             Marker::TinyString,
             Marker::TinyList,
             Marker::TinyDictionary,
-            Marker::Structure,
         };
 
         for m in r {
             for i in 0u8..0x10 {
-                assert_eq!(Some(m(i as usize)), Marker::from_u8(m(0).high_nibble() as u8 | i));
+                marker_from_bytes_test(m(i as usize), &[(m(0).high_nibble() as u8 | i)]);
             }
         }
-
     }
 
     #[test]
-    fn from_u8_inverses() {
+    fn from_high_nibble() {
         let r = vec! {
             Marker::Null,
             Marker::Float64,
@@ -329,11 +341,10 @@ pub mod test {
             Marker::Bytes8,
             Marker::Bytes16,
             Marker::Bytes32,
-            Marker::Structure(0),
         };
 
         for m in r {
-            assert_eq!(Some(m), Marker::from_u8(m.high_nibble() as u8));
+            marker_from_bytes_test(m, &[m.high_nibble() as u8]);
         }
     }
 }

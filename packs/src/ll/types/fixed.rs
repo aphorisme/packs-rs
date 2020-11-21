@@ -1,12 +1,12 @@
 use std::io::Read;
-use byteorder::ReadBytesExt;
 use crate::ll::marker::Marker;
 use std::io::{Write};
 use std::io;
-use byteorder::{WriteBytesExt, BigEndian};
 
 pub fn decode_minus_tiny_int<T: Read>(mut reader: T) -> io::Result<i8> {
-    reader.read_u8().map(byte_to_minus_tiny_int)
+    let mut buf = [0; 1];
+    reader.read_exact(&mut buf)?;
+    Ok(byte_to_minus_tiny_int(buf[0]))
 }
 
 /// Calculates from a (marker) byte the respective `i8`. The value of a `MinusTinyInt` is
@@ -36,41 +36,71 @@ pub fn minus_tiny_int_to_byte(value: i8) -> u8 {
 /// output.
 pub fn encode_minus_tiny_int<T: Write>(from: i8, mut into: T) -> io::Result<usize> {
     let res = minus_tiny_int_to_byte(from);
-    into.write_u8(res)?;
-    Ok(1)
+    into.write(&[res])
 }
 
 pub fn encode_plus_tiny_int<T: Write>(from: u8, mut into: T) -> io::Result<usize> {
-    into.write_u8(from)?;
-    Ok(1)
+    into.write(&[from])
 }
 
 pub fn decode_plus_tiny_int<T: Read>(from: &mut T) -> io::Result<u8> {
-    from.read_u8()
+    let mut buf = [0; 1];
+    from.read_exact(&mut buf)?;
+    Ok(buf[0])
 }
 
 pub fn encode_i8<T: Write>(from: i8, mut into: T) -> io::Result<usize> {
     Marker::Int8.encode(&mut into)?;
-    into.write_i8(from)?;
-    Ok(2)
+    Ok(1 + into.write(&from.to_be_bytes())?)
+}
+
+pub fn decode_body_i8<T: Read>(mut from: T) -> io::Result<i8> {
+    let mut buf = [0; 1];
+    from.read_exact(&mut buf)?;
+    Ok(i8::from_be_bytes(buf))
 }
 
 pub fn encode_i16<T: Write>(from: i16, mut into: T) -> io::Result<usize> {
     Marker::Int16.encode(&mut into)?;
-    into.write_i16::<BigEndian>(from)?;
-    Ok(3)
+    Ok(1 + into.write(&from.to_be_bytes())?)
+}
+
+pub fn decode_body_i16<T: Read>(mut from: T) -> io::Result<i16> {
+    let mut buf = [0; 2];
+    from.read_exact(&mut buf)?;
+    Ok(i16::from_be_bytes(buf))
 }
 
 pub fn encode_i32<T: Write>(from: i32, mut into: T) -> io::Result<usize> {
     Marker::Int32.encode(&mut into)?;
-    into.write_i32::<BigEndian>(from)?;
-    Ok(5)
+    Ok(1 + into.write(&from.to_be_bytes())?)
+}
+
+pub fn decode_body_i32<T: Read>(mut from: T) -> io::Result<i32> {
+    let mut buf = [0; 4];
+    from.read_exact(&mut buf)?;
+    Ok(i32::from_be_bytes(buf))
 }
 
 pub fn encode_i64<T: Write>(from: i64, mut into: T) -> io::Result<usize> {
     Marker::Int64.encode(&mut into)?;
-    into.write_i64::<BigEndian>(from)?;
-    Ok(9)
+    Ok(1 + into.write(&from.to_be_bytes())?)
+}
+
+pub fn decode_body_i64<T: Read>(mut from: T) -> io::Result<i64> {
+    let mut buf = [0; 8];
+    from.read_exact(&mut buf)?;
+    Ok(i64::from_be_bytes(buf))
+}
+
+pub fn encode_f64<T: Write>(from: f64, mut into: T) -> io::Result<usize> {
+    Ok(Marker::Float64.encode(&mut into)? + into.write(&from.to_be_bytes())?)
+}
+
+pub fn decode_body_f64<T: Read>(mut from: T) -> io::Result<f64> {
+    let mut buf = [0; 8];
+    from.read_exact(&mut buf)?;
+    Ok(f64::from_be_bytes(buf))
 }
 
 #[cfg(test)]

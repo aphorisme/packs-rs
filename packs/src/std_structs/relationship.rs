@@ -1,15 +1,14 @@
-use std::collections::HashMap;
 use crate::*;
-use crate::std_structs::StdStruct;
+use crate::std_structs::{StdStructPrimitive};
 
-#[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
 #[tag = 0x52]
 pub struct Relationship {
     pub id: i64,
     pub start_node_id: i64,
     pub end_node_id: i64,
     pub _type: String,
-    pub properties: HashMap<String, Value<StdStruct>>
+    pub properties: Dictionary<StdStructPrimitive>
 }
 
 impl Relationship {
@@ -19,12 +18,8 @@ impl Relationship {
             start_node_id: from,
             end_node_id: to,
             _type: String::from(_type),
-            properties: HashMap::new(),
+            properties: Dictionary::new(),
         }
-    }
-
-    pub fn add_property<V: Into<Value<StdStruct>>>(&mut self, key: &str, value: V) -> Option<Value<StdStruct>> {
-        self.properties.insert(String::from(key), value.into())
     }
 }
 

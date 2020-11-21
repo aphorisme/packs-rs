@@ -12,8 +12,8 @@
 //! use packs::std_structs::Node;
 //!
 //! let mut node = Node::new(42);
-//! node.add_property("title", "A Book's Title");
-//! node.add_property("pages", 302);
+//! node.properties.add_property("title", "A Book's Title");
+//! node.properties.add_property("pages", 302);
 //!
 //! // encode `node` into a `Vec<u8>`:
 //! let mut buffer = Vec::new();
@@ -25,15 +25,14 @@
 //! assert_eq!(node, recovered);
 //! ```
 //! # User-Defined Structs
-//! Using the derive macros for [`PackableStruct`](crate::structure::packable_struct), `Pack` and
-//! `Unpack` as well as providing a tag byte, user defined structure can be encoded and decoded
-//! as well. These are then treated as if they were part of the PackStream specification, i.e. like
-//! if they were a `Point2D` or `Node` or such. This especially means that they are not packed as `Node`,
-//! but as their own.
+//! A `struct` can be encoded and decoded in several ways, following the PackStream specification.
+//! Specifying a `#[tag = u8]` attribute interprets the `struct` as a Structure with provided tag
+//! byte and its fields as fields of a structure. I.e. it would be then treated like a `Point2D` or
+//! a `Node` from the `std_structs`.
 //! ```
 //! use packs::*;
 //!
-//! #[derive(Debug, PartialEq, PackableStruct, Pack, Unpack)]
+//! #[derive(Debug, PartialEq, Pack, Unpack)]
 //! #[tag = 0x0B]
 //! struct Book {
 //!     pub title: String,
@@ -52,32 +51,32 @@
 //! assert_eq!(book, recovered);
 //! ```
 //! ## Providing a sum type
-//! Usually, all user defined structs are sumed up in an `enum` which denotes all possible structs
-//! the protocol should be able to encode and decode. This can be given by deriving `PackableStructSum`.
-//! The `tag` attribute on the different variants is optional; if no tag is provided, the successor
-//! of the previous is taken, starting with `0x01`.
+//! User defined structs are often sumed up in an `enum` which denotes all possible structs
+//! the protocol should be able to encode and decode. This can be given by deriving `Pack` and `Unpack` for an enum.
+//! The `tag` attribute on the different variants is not optional, but it can differ from the one `tag`
+//! attribute provided to the structs themselves.
 //! ```
 //! use packs::*;
 //!
-//! #[derive(Debug, PartialEq, PackableStruct, Pack, Unpack)]
+//! #[derive(Debug, PartialEq, Pack, Unpack)]
 //! #[tag = 0x0B]
 //! struct Book {
 //!     pub title: String,
 //!     pub pages: i64,
 //! }
 //!
-//! #[derive(Debug, PartialEq, PackableStruct, Pack, Unpack)]
+//! #[derive(Debug, PartialEq, Pack, Unpack)]
 //! #[tag = 0x0C]
 //! struct Person {
 //!     pub name: String,
 //! }
 //!
-//! // no need for Pack nor Unpack here, the PackableStructSum takes care of this already.
-//! #[derive(Debug, PartialEq, PackableStructSum)]
+//! #[derive(Debug, PartialEq, Pack, Unpack)]
 //! enum MyStruct {
-//!     #[tag = 0x0B] // can be a different tag, but same here for consistency
+//!     #[tag = 0x0B]
 //!     Book(Book),
-//!     Person(Person), // gets 0x0C
+//!     #[tag = 0x0C]
+//!     Person(Person),
 //! }
 //!
 //! let person = Person { name: String::from("Check Mate") };
@@ -90,50 +89,52 @@
 //!
 //! assert_eq!(MyStruct::Person(person), my_struct);
 //! ```
-//! ## Consistency on tag bytes
-//! The tags provided by the types themselves and defined as part of the variant can be different,
-//! which might be useful in some situations (for example to re-use a structure in a different setting),
-//! but then decoding has to go the same way (sum-type or direct) as it was encoded to yield a valid
-//! result.
+//! ## Tag consistency
+//! Different tags at an enum variant and at its corresponding struct is possible and can be useful
+//! sometimes, to use the same struct in different settings. It might lead to inconsistency if encoding and
+//! decoding doesn't follow the same path though. For example, encoding a
+//! struct with its `Pack` implementation and then decode it, using an enum implementation of `Unpack`
+//! with a different tag will not work.
 //!
 //! # Runtime-typed values
 //! Besides using the types directly, values can be encoded and decoded through a sum type
 //! [`Value`](crate::value::Value) which allows for decoding of any value without knowing its type
 //! beforehand.
 //! ```
-//! use packs::{Value, Unpack, Pack};
+//! use packs::{Value, Unpack, Pack, NoStruct};
 //! use packs::std_structs::StdStruct;
 //!
 //! let mut buffer = Vec::new();
 //! 42i64.encode(&mut buffer).unwrap();
 //!
-//! let value = <Value<()>>::decode(&mut buffer.as_slice()).unwrap();
+//! let value = <Value<NoStruct>>::decode(&mut buffer.as_slice()).unwrap();
 //!
 //! assert_eq!(Value::Integer(42), value);
 //! ```
-//! The type `Value` is abstracted over possible structures. One can use `()` to deny any structures
-//! besides a unit structure with zero fields, or use `Value<StdStruct>` (c.f. [`StdStruct`](crate::std_structs::StdStruct))
+//! The type `Value` is abstracted over possible structures. One can use `NoStruct` to deny any
+//! structures or use `Value<StdStruct>` (c.f. [`StdStruct`](crate::std_structs::StdStruct))
 //! to allow any standard structures as part of `Value`.
 //!
 //! To continue on the example from above, `Value<MyStruct>` could have been used there as well:
 //! ```
 //! # use packs::*;
-//! # #[derive(Debug, PartialEq, PackableStruct, Pack, Unpack)]
+//! # #[derive(Debug, PartialEq, Pack, Unpack)]
 //! # #[tag = 0x0B]
 //! # struct Book {
 //! #     pub title: String,
 //! #     pub pages: i64,
 //! # }
-//! # #[derive(Debug, PartialEq, PackableStruct, Pack, Unpack)]
+//! # #[derive(Debug, PartialEq, Pack, Unpack)]
 //! # #[tag = 0x0C]
 //! # struct Person {
 //! #     pub name: String,
 //! # }
-//! # #[derive(Debug, PartialEq, PackableStructSum)]
+//! # #[derive(Debug, PartialEq, Pack, Unpack)]
 //! # enum MyStruct {
-//! #    #[tag = 0x0B] // can be a different tag, but same here for consistency
+//! #    #[tag = 0x0B]
 //! #    Book(Book),
-//! #    Person(Person), // gets 0x0C
+//! #    #[tag = 0x0C]
+//! #    Person(Person),
 //! # }
 //! let mut buffer = Vec::new();
 //! let person = Person { name: String::from("Check Mate") };
@@ -145,10 +146,10 @@
 //!
 //! assert_eq!(Value::Structure(MyStruct::Person(person)), runtime_typed);
 //! ```
-pub mod value;
-pub mod structure;
-pub mod packable;
-pub mod error;
+mod value;
+mod structure;
+mod packable;
+mod error;
 pub mod ll;
 pub mod utils;
 
@@ -158,20 +159,11 @@ pub mod std_structs;
 #[cfg(feature = "derive")]
 pub use packs_proc::*;
 
-#[cfg(feature = "derive")]
-#[doc(hidden)]
-pub use std::io::Write;
-
-#[cfg(feature = "derive")]
-#[doc(hidden)]
-pub use std::io::Read;
-
 // Public API:
 pub use packable::{Pack, Unpack};
 pub use error::{EncodeError, DecodeError};
-pub use value::Value;
+pub use value::{Value, Extract, ExtractRef, ExtractMut, extract_list_ref, extract_list, extract_list_mut};
 pub use value::bytes::Bytes;
-pub use structure::packable_struct::{PackableStruct};
-pub use structure::{encode_struct, decode_struct};
-pub use structure::generic_struct::GenericStruct;
-pub use structure::struct_sum::PackableStructSum;
+pub use value::dictionary::Dictionary;
+pub use ll::marker::Marker;
+pub use structure::{GenericStruct, NoStruct};

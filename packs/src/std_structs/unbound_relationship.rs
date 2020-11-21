@@ -2,7 +2,7 @@ use crate::*;
 use std::collections::HashMap;
 use crate::std_structs::StdStruct;
 
-#[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
 #[tag = 0x72]
 pub struct UnboundRelationship {
     pub id: i64,

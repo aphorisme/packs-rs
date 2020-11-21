@@ -27,7 +27,7 @@ pub mod duration;
 pub mod point2d;
 pub mod point3d;
 
-#[derive(Debug, Clone, PartialEq, PackableStructSum)]
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
 pub enum StdStruct {
     #[tag = 0x4E]
     Node(Node),
@@ -37,6 +37,31 @@ pub enum StdStruct {
     UnboundRelationship(UnboundRelationship),
     #[tag = 0x50]
     Path(Path),
+    #[tag = 0x44]
+    Date(Date),
+    #[tag = 0x54]
+    Time(Time),
+    #[tag = 0x74]
+    LocalTime(LocalTime),
+    #[tag = 0x46]
+    DateTime(DateTime),
+    #[tag = 0x66]
+    DateTimeZoneId(DateTimeZoneId),
+    #[tag = 0x64]
+    LocalDateTime(LocalDateTime),
+    #[tag = 0x45]
+    Duration(Duration),
+    #[tag = 0x58]
+    Point2D(Point2D),
+    #[tag = 0x59]
+    Point3D(Point3D),
+}
+
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
+/// A variant of `StdStruct` which has only the non-recursive types. This allows `StdStruct` to become
+/// `Send`, since [`Node`](crate::std_structs::node) can use `StdStructPrimitive` and hence is no longer
+/// recursive.
+pub enum StdStructPrimitive {
     #[tag = 0x44]
     Date(Date),
     #[tag = 0x54]

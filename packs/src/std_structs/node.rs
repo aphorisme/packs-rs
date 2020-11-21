@@ -1,13 +1,13 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashSet};
 use crate::*;
-use crate::std_structs::StdStruct;
+use crate::std_structs::{StdStructPrimitive};
 
-#[derive(Debug, Clone, PartialEq, PackableStruct, Pack, Unpack)]
+#[derive(Debug, Clone, PartialEq, Pack, Unpack)]
 #[tag = 0x4E]
 pub struct Node {
     pub id: i64,
     pub labels: HashSet<String>,
-    pub properties: HashMap<String, Value<StdStruct>>
+    pub properties: Dictionary<StdStructPrimitive>
 }
 
 impl Node {
@@ -15,12 +15,8 @@ impl Node {
         Node {
             id,
             labels: HashSet::new(),
-            properties: HashMap::new(),
+            properties: Dictionary::new(),
         }
-    }
-
-    pub fn add_property<V: Into<Value<StdStruct>>>(&mut self, key: &str, value: V) -> Option<Value<StdStruct>> {
-        self.properties.insert(String::from(key), value.into())
     }
 
     pub fn add_label(&mut self, label: &str) {
@@ -30,7 +26,7 @@ impl Node {
 
 #[cfg(test)]
 pub mod test {
-    use crate::packable::test::pack_unpack_test;
+    use crate::packable::test::{pack_unpack_test, pack_to_test};
     use crate::std_structs::node::Node;
     use crate::value::Value;
 
@@ -46,5 +42,21 @@ pub mod test {
                 ].into_iter().collect(),
             }
         ],)
+    }
+
+    #[test]
+    fn pack_into() {
+        let mut node = Node::new(42);
+        node.add_label("Person");
+        node.properties.add_property("name", "Hans");
+        pack_to_test(
+            node,
+            &[0xB3, 0x4E,
+                0x2A,
+                0x91, 0x86, 0x50, 0x65, 0x72, 0x73, 0x6F, 0x6E,
+                0xA1,
+                    0x84, 0x6E, 0x61, 0x6D, 0x65,
+                    0x84, 0x48, 0x61, 0x6E, 0x73]
+        )
     }
 }
